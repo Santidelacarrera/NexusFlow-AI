@@ -1,4 +1,4 @@
-FROM node:24-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package*.json ./
@@ -10,7 +10,7 @@ RUN npm run build -w @nexusflow/api
 FROM build AS prod-deps
 RUN npm prune --omit=dev
 
-FROM node:24-bookworm-slim
+FROM node:26-bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/apps/api
 COPY --from=prod-deps --chown=node:node /app/node_modules /app/node_modules
