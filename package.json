@@ -1,0 +1,17 @@
+{
+  "name": "nexusflow-ai",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Plataforma SaaS de automatización, analítica e IA predictiva con seguridad por diseño",
+  "license": "MIT",
+  "engines": { "node": ">=20" },
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev:api": "npm run start:dev -w @nexusflow/api",
+    "dev:web": "npm run dev -w @nexusflow/web",
+    "build": "npm run build -w @nexusflow/api && npm run build -w @nexusflow/web",
+    "test": "npm test -w @nexusflow/api && npm test -w @nexusflow/web",
+    "lint": "npm run lint -w @nexusflow/api && npm run lint -w @nexusflow/web",
+    "audit:prod": "npm audit --omit=dev --audit-level=high"
+  }
+}
