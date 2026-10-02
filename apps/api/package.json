@@ -40,7 +40,7 @@
     "@types/supertest": "^7.2.1",
     "deepmerge-ts": "^8.0.2",
     "jest": "^29.7.0",
-    "prisma": "^6.19.3",
+    "prisma": "^7.10.0",
     "supertest": "^7.3.0",
     "ts-jest": "^29.4.14",
     "ts-node": "^10.9.2",
