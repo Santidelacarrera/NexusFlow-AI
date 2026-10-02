@@ -16,3 +16,9 @@ services/ml/models/
 .DS_Store
 .vscode/
 .idea/
+test-results/
+playwright-report/
+demo-transacciones.csv
+*.tsbuildinfo
+.validation/
+package-lock.pre-security.json

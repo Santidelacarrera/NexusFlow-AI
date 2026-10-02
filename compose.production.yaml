@@ -1,0 +1,14 @@
+# TLS debe terminar en un proxy confiable que publique la web.
+services:
+  api:
+    environment:
+      NODE_ENV: production
+      ALLOW_REGISTRATION: 'false'
+    security_opt: ['no-new-privileges:true']
+    cap_drop: ['ALL']
+  ml:
+    security_opt: ['no-new-privileges:true']
+    cap_drop: ['ALL']
+  web:
+    security_opt: ['no-new-privileges:true']
+    cap_drop: ['ALL']

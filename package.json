@@ -4,14 +4,32 @@
   "version": "1.0.0",
   "description": "Plataforma SaaS de automatización, analítica e IA predictiva con seguridad por diseño",
   "license": "MIT",
-  "engines": { "node": ">=20" },
-  "workspaces": ["apps/*"],
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "apps/*"
+  ],
+  "overrides": {
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.2"
+    }
+  },
   "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "test:smoke": "node scripts/smoke.mjs",
+    "test:smoke:ml": "node scripts/smoke-ml.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "demo:csv": "node scripts/demo-csv.mjs",
     "dev:api": "npm run start:dev -w @nexusflow/api",
     "dev:web": "npm run dev -w @nexusflow/web",
     "build": "npm run build -w @nexusflow/api && npm run build -w @nexusflow/web",
     "test": "npm test -w @nexusflow/api && npm test -w @nexusflow/web",
     "lint": "npm run lint -w @nexusflow/api && npm run lint -w @nexusflow/web",
     "audit:prod": "npm audit --omit=dev --audit-level=high"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.9"
   }
 }

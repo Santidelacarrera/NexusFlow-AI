@@ -1,0 +1,8 @@
+# Usar con: docker compose -f compose.yaml -f compose.dev.yaml up -d postgres redis ml
+services:
+  postgres:
+    ports: ['127.0.0.1:54330:5432']
+  redis:
+    ports: ['127.0.0.1:63800:6379']
+  ml:
+    ports: ['127.0.0.1:8001:8001']

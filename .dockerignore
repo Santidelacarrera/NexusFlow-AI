@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+.git
+.env
+**/.env
+**/.venv
+**/dist
+**/coverage
+**/__pycache__
+**/.pytest_cache
+services/ml/models
+**/test-results
+**/playwright-report
+.validation
+package-lock.pre-security.json
