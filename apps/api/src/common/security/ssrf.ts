@@ -9,9 +9,20 @@ function ipv4ToInt(ip: string): number {
 }
 
 const V4_BLOCKS: Array<[string, number]> = [
-  ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16], ['172.16.0.0', 12],
-  ['192.0.0.0', 24], ['192.0.2.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15], ['198.51.100.0', 24],
-  ['203.0.113.0', 24], ['224.0.0.0', 4], ['240.0.0.0', 4],
+  ['0.0.0.0', 8],
+  ['10.0.0.0', 8],
+  ['100.64.0.0', 10],
+  ['127.0.0.0', 8],
+  ['169.254.0.0', 16],
+  ['172.16.0.0', 12],
+  ['192.0.0.0', 24],
+  ['192.0.2.0', 24],
+  ['192.168.0.0', 16],
+  ['198.18.0.0', 15],
+  ['198.51.100.0', 24],
+  ['203.0.113.0', 24],
+  ['224.0.0.0', 4],
+  ['240.0.0.0', 4],
 ];
 
 /** True si la IP pertenece a rangos privados/loopback/link-local/metadata/multicast (IPv4 e IPv6, incl. IPv4-mapped). */
@@ -34,7 +45,8 @@ export function isPrivateAddress(ip: string): boolean {
       const lo = parseInt(mappedHex[2], 16);
       return isPrivateAddress(`${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`);
     }
-    if (lower === '::' || lower === '::1') return true;
+    // Solo IPv6 global unicast 2000::/3. Bloquea formas expandidas de loopback y direcciones de transición.
+    if (!/^[23][0-9a-f]{3}:/.test(lower) || /^200[12]:/.test(lower)) return true;
     return /^(fc|fd|fe[89ab]|ff|2001:db8|64:ff9b)/.test(lower);
   }
   return true; // no es una IP válida: bloquear por defecto
@@ -59,10 +71,16 @@ export function validateUrlSyntax(raw: string, policy: UrlPolicy): URL {
   if (!ALLOWED_PORTS.has(port)) throw new Error('Puerto no permitido');
   const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
   if (isIP(host) && isPrivateAddress(host)) throw new Error('Destino no permitido');
-  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.internal') || host.endsWith('.local')) {
+  if (
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host.endsWith('.internal') ||
+    host.endsWith('.local')
+  ) {
     throw new Error('Destino no permitido');
   }
-  if (policy.allowlist.length > 0 && !policy.allowlist.includes(host)) throw new Error('Host fuera de la lista de permitidos');
+  if (policy.allowlist.length > 0 && !policy.allowlist.includes(host))
+    throw new Error('Host fuera de la lista de permitidos');
   return url;
 }
 
@@ -99,7 +117,14 @@ export interface SafeFetchResult {
   truncated: boolean;
 }
 
-const BLOCKED_HEADERS = new Set(['host', 'content-length', 'connection', 'transfer-encoding', 'upgrade', 'proxy-authorization']);
+const BLOCKED_HEADERS = new Set([
+  'host',
+  'content-length',
+  'connection',
+  'transfer-encoding',
+  'upgrade',
+  'proxy-authorization',
+]);
 
 /** Cliente HTTP saliente endurecido: https only, sin redirects, timeout, tope de tamaño, DNS validado al conectar. */
 export function safeFetch(rawUrl: string, opts: SafeFetchOptions): Promise<SafeFetchResult> {

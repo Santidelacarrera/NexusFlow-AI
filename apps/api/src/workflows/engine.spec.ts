@@ -17,7 +17,11 @@ const saleFlow: WorkflowGraph = {
   nodes: [
     { id: 't', type: 'trigger.webhook', data: {} },
     { id: 'c', type: 'condition', data: { field: 'trigger.amount', op: 'gte', value: 1000 } },
-    { id: 'big', type: 'action.notify', data: { severity: 'INFO', title: 'Venta grande {{trigger.id}}', message: 'Monto {{trigger.amount}}' } },
+    {
+      id: 'big',
+      type: 'action.notify',
+      data: { severity: 'INFO', title: 'Venta grande {{trigger.id}}', message: 'Monto {{trigger.amount}}' },
+    },
     { id: 'small', type: 'action.task', data: { title: 'Revisar {{trigger.id}}' } },
   ],
   edges: [
@@ -42,7 +46,9 @@ describe('validateGraph', () => {
     two.nodes.push({ id: 't2', type: 'trigger.manual', data: {} });
     expect(validateGraph(two).errors.join()).toMatch(/exactamente un nodo trigger/);
 
-    expect(validateGraph({ nodes: [{ id: 'a', type: 'action.task', data: { title: 'x' } }], edges: [] }).ok).toBe(false);
+    expect(
+      validateGraph({ nodes: [{ id: 'a', type: 'action.task', data: { title: 'x' } }], edges: [] }).ok,
+    ).toBe(false);
 
     const broken = structuredClone(saleFlow);
     broken.edges.push({ id: 'e9', source: 'c', target: 'zzz', sourceHandle: 'true' });
@@ -60,7 +66,11 @@ describe('validateGraph', () => {
     expect(validateGraph(handle).errors.join()).toMatch(/true.*false/);
   });
   it('limita el tamaño del grafo', () => {
-    const nodes = Array.from({ length: 51 }, (_, i) => ({ id: `n${i}`, type: 'action.task' as const, data: { title: 'x' } }));
+    const nodes = Array.from({ length: 51 }, (_, i) => ({
+      id: `n${i}`,
+      type: 'action.task' as const,
+      data: { title: 'x' },
+    }));
     expect(validateGraph({ nodes, edges: [] }).ok).toBe(false);
   });
 });
@@ -97,7 +107,11 @@ describe('executeGraph', () => {
     expect(ex.calls.task[0]).toMatchObject({ title: 'Revisar S2' });
   });
   it('falla rápido y registra el error del nodo', async () => {
-    const ex = makeExecutors({ notify: async () => { throw new Error('boom'); } });
+    const ex = makeExecutors({
+      notify: async () => {
+        throw new Error('boom');
+      },
+    });
     const r = await executeGraph(saleFlow, { id: 'S3', amount: 5000 }, ex);
     expect(r.status).toBe('FAILED');
     expect(r.steps.at(-1)).toMatchObject({ nodeId: 'big', status: 'FAILED', error: 'boom' });
@@ -112,8 +126,16 @@ describe('executeGraph', () => {
       ],
       edges: [{ id: 'e', source: 't', target: 'h' }],
     };
-    const ex = makeExecutors({ http: async () => { if (++n < 3) throw new Error('flaky'); return { status: 200 }; } });
-    const r = await executeGraph(g, {}, ex, { sleep: async (ms) => void sleeps.push(ms), baseBackoffMs: 100 });
+    const ex = makeExecutors({
+      http: async () => {
+        if (++n < 3) throw new Error('flaky');
+        return { status: 200 };
+      },
+    });
+    const r = await executeGraph(g, {}, ex, {
+      sleep: async (ms) => void sleeps.push(ms),
+      baseBackoffMs: 100,
+    });
     expect(r.status).toBe('SUCCEEDED');
     expect(n).toBe(3);
     expect(sleeps).toEqual([100, 200]);
@@ -123,9 +145,16 @@ describe('executeGraph', () => {
       nodes: [
         { id: 't', type: 'trigger.manual', data: {} },
         { id: 'x', type: 'transform', data: { assignments: { greeting: 'Hola {{trigger.name}}' } } },
-        { id: 'n', type: 'action.notify', data: { severity: 'INFO', title: '{{data.greeting}}', message: 'm' } },
+        {
+          id: 'n',
+          type: 'action.notify',
+          data: { severity: 'INFO', title: '{{data.greeting}}', message: 'm' },
+        },
       ],
-      edges: [{ id: 'e1', source: 't', target: 'x' }, { id: 'e2', source: 'x', target: 'n' }],
+      edges: [
+        { id: 'e1', source: 't', target: 'x' },
+        { id: 'e2', source: 'x', target: 'n' },
+      ],
     };
     const ex = makeExecutors();
     await executeGraph(g, { name: 'Ana' }, ex);
@@ -153,8 +182,10 @@ describe('executeGraph', () => {
         { id: 'j', type: 'action.notify', data: { severity: 'INFO', title: 'j', message: 'j' } },
       ],
       edges: [
-        { id: '1', source: 't', target: 'a' }, { id: '2', source: 't', target: 'b' },
-        { id: '3', source: 'a', target: 'j' }, { id: '4', source: 'b', target: 'j' },
+        { id: '1', source: 't', target: 'a' },
+        { id: '2', source: 't', target: 'b' },
+        { id: '3', source: 'a', target: 'j' },
+        { id: '4', source: 'b', target: 'j' },
       ],
     };
     const ex = makeExecutors();

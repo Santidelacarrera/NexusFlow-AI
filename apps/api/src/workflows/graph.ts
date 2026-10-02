@@ -28,10 +28,19 @@ export const nodeDataSchemas: Record<NodeType, z.ZodType> = {
   condition: z.object({
     field: text(200),
     op: z.enum(CONDITION_OPS),
-    value: z.union([z.string().max(500), z.number(), z.boolean(), z.array(z.union([z.string().max(200), z.number()])).max(50)]).optional(),
+    value: z
+      .union([
+        z.string().max(500),
+        z.number(),
+        z.boolean(),
+        z.array(z.union([z.string().max(200), z.number()])).max(50),
+      ])
+      .optional(),
   }),
   transform: z.object({
-    assignments: z.record(z.string().regex(/^[A-Za-z_][\w]{0,49}$/), z.string().max(1000)).refine((r) => Object.keys(r).length <= 20, 'Máximo 20 asignaciones'),
+    assignments: z
+      .record(z.string().regex(/^[A-Za-z_][\w]{0,49}$/), z.string().max(1000))
+      .refine((r) => Object.keys(r).length <= 20, 'Máximo 20 asignaciones'),
   }),
   'action.notify': z.object({
     severity: z.enum(['INFO', 'WARNING', 'CRITICAL']).default('INFO'),
@@ -41,9 +50,20 @@ export const nodeDataSchemas: Record<NodeType, z.ZodType> = {
   }),
   'action.task': z.object({ title: text(200), description: z.string().max(2000).optional(), retries }),
   'action.http': z.object({
+    integrationId: z
+      .string()
+      .regex(/^[a-z0-9]{20,40}$/)
+      .optional(),
     url: text(2048),
     method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']).default('POST'),
-    headers: z.record(z.string().regex(/^[\w-]{1,64}$/), z.string().max(500)).optional(),
+    headers: z
+      .record(z.string().regex(/^[\w-]{1,64}$/), z.string().max(500))
+      .refine(
+        (headers) =>
+          !Object.keys(headers).some((key) => /authorization|cookie|api[-_]?key|token|secret/i.test(key)),
+        'Guarda las credenciales en Integraciones, no dentro del workflow',
+      )
+      .optional(),
     body: z.string().max(10_000).optional(),
     retries,
   }),
@@ -108,10 +128,14 @@ export function validateGraph(input: unknown): ValidationResult {
   const errors: string[] = [];
   const ids = new Set<string>();
   for (const n of graph.nodes) {
+    if (['__proto__', 'prototype', 'constructor'].includes(n.id)) errors.push('Id de nodo reservado');
     if (ids.has(n.id)) errors.push(`Id de nodo duplicado: ${n.id}`);
     ids.add(n.id);
     const res = nodeDataSchemas[n.type].safeParse(n.data);
-    if (!res.success) errors.push(`Nodo ${n.id} (${n.type}): ${res.error.issues.map((i) => `${i.path.join('.')} ${i.message}`).join('; ')}`);
+    if (!res.success)
+      errors.push(
+        `Nodo ${n.id} (${n.type}): ${res.error.issues.map((i) => `${i.path.join('.')} ${i.message}`).join('; ')}`,
+      );
     else n.data = res.data as Record<string, unknown>;
   }
 
@@ -126,15 +150,29 @@ export function validateGraph(input: unknown): ValidationResult {
     if (e.source === e.target) errors.push(`Arista ${e.id} es un bucle sobre sí misma`);
   }
   for (const t of triggers) {
-    if (graph.edges.some((e) => e.target === t.id)) errors.push('El trigger no puede tener aristas de entrada');
+    if (graph.edges.some((e) => e.target === t.id))
+      errors.push('El trigger no puede tener aristas de entrada');
   }
   for (const c of graph.nodes.filter((n) => n.type === 'condition')) {
     for (const e of graph.edges.filter((x) => x.source === c.id)) {
-      if (e.sourceHandle !== 'true' && e.sourceHandle !== 'false') errors.push(`Las salidas de la condición ${c.id} deben ser "true" o "false"`);
+      if (e.sourceHandle !== 'true' && e.sourceHandle !== 'false')
+        errors.push(`Las salidas de la condición ${c.id} deben ser "true" o "false"`);
     }
   }
 
   if (errors.length === 0 && hasCycle(graph)) errors.push('El workflow contiene un ciclo');
+  if (errors.length === 0 && triggers.length === 1) {
+    const reachable = new Set<string>(),
+      pending = [triggers[0].id];
+    while (pending.length) {
+      const id = pending.pop() as string;
+      if (reachable.has(id)) continue;
+      reachable.add(id);
+      for (const edge of graph.edges) if (edge.source === id) pending.push(edge.target);
+    }
+    if (reachable.size !== graph.nodes.length)
+      errors.push('Todos los nodos deben estar conectados al disparador');
+  }
   if (errors.length > 0) return { ok: false, errors };
   return { ok: true, errors: [], graph, triggerType: triggers[0].type as (typeof TRIGGER_TYPES)[number] };
 }

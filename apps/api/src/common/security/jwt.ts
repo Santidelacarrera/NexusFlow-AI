@@ -7,6 +7,7 @@ export interface AccessClaims {
   exp: number;
   iss: string;
   aud: string;
+  sid?: string;
 }
 
 const ISSUER = 'nexusflow-api';
@@ -17,9 +18,16 @@ function sign(data: string, secret: string): string {
   return createHmac('sha256', secret).update(data).digest('base64url');
 }
 
-export function signAccessToken(sub: string, org: string, secret: string, ttlSeconds = 900, now = Date.now()): string {
+export function signAccessToken(
+  sub: string,
+  org: string,
+  secret: string,
+  ttlSeconds = 900,
+  now = Date.now(),
+  sid?: string,
+): string {
   const iat = Math.floor(now / 1000);
-  const claims: AccessClaims = { sub, org, iat, exp: iat + ttlSeconds, iss: ISSUER, aud: AUDIENCE };
+  const claims: AccessClaims = { sub, org, iat, exp: iat + ttlSeconds, iss: ISSUER, aud: AUDIENCE, sid };
   const body = Buffer.from(JSON.stringify(claims)).toString('base64url');
   return `${HEADER}.${body}.${sign(`${HEADER}.${body}`, secret)}`;
 }
@@ -38,7 +46,9 @@ export function verifyAccessToken(token: string, secret: string, now = Date.now(
     const claims = JSON.parse(Buffer.from(b, 'base64url').toString('utf8')) as AccessClaims;
     if (claims.iss !== ISSUER || claims.aud !== AUDIENCE) return null;
     if (typeof claims.sub !== 'string' || typeof claims.org !== 'string') return null;
-    if (typeof claims.exp !== 'number' || claims.exp * 1000 <= now) return null;
+    if (!Number.isSafeInteger(claims.exp) || claims.exp * 1000 <= now) return null;
+    if (!Number.isSafeInteger(claims.iat) || claims.iat * 1000 > now + 30_000) return null;
+    if (claims.sid !== undefined && (typeof claims.sid !== 'string' || claims.sid.length > 200)) return null;
     return claims;
   } catch {
     return null;

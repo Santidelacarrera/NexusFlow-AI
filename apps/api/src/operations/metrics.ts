@@ -35,9 +35,14 @@ export function computeOpsKpis(orders: OrderLike[], now: Date): OpsKpis {
   const active = orders.filter((o) => o.status !== 'CANCELLED');
   const delivered = active.filter((o) => o.status === 'DELIVERED' && o.deliveredAt);
   const deliveredOnTime = delivered.filter((o) => !isLate(o, now)).length;
-  const durations = delivered.filter((o) => o.dispatchedAt).map((o) => ((o.deliveredAt as Date).getTime() - (o.dispatchedAt as Date).getTime()) / HOUR_MS);
+  const durations = delivered
+    .filter((o) => o.dispatchedAt)
+    .map((o) => ((o.deliveredAt as Date).getTime() - (o.dispatchedAt as Date).getTime()) / HOUR_MS);
 
-  const carriers = new Map<string, { total: number; late: number; deliveredTotal: number; deliveredOnTime: number }>();
+  const carriers = new Map<
+    string,
+    { total: number; late: number; deliveredTotal: number; deliveredOnTime: number }
+  >();
   for (const o of active) {
     const c = carriers.get(o.carrier) ?? { total: 0, late: 0, deliveredTotal: 0, deliveredOnTime: 0 };
     c.total++;
@@ -57,9 +62,16 @@ export function computeOpsKpis(orders: OrderLike[], now: Date): OpsKpis {
     inTransit: active.filter((o) => o.status === 'IN_TRANSIT').length,
     late: active.filter((o) => isLate(o, now)).length,
     onTimeRate: rate(deliveredOnTime, delivered.length),
-    avgDeliveryHours: durations.length ? Math.round((durations.reduce((a, b) => a + b, 0) / durations.length) * 10) / 10 : null,
+    avgDeliveryHours: durations.length
+      ? Math.round((durations.reduce((a, b) => a + b, 0) / durations.length) * 10) / 10
+      : null,
     byCarrier: [...carriers.entries()]
-      .map(([carrier, c]) => ({ carrier, total: c.total, late: c.late, onTimeRate: rate(c.deliveredOnTime, c.deliveredTotal) }))
+      .map(([carrier, c]) => ({
+        carrier,
+        total: c.total,
+        late: c.late,
+        onTimeRate: rate(c.deliveredOnTime, c.deliveredTotal),
+      }))
       .sort((a, b) => b.late - a.late),
   };
 }
@@ -94,7 +106,7 @@ const ROUTES = ['BUE-COR', 'BUE-ROS', 'COR-MZA', 'ROS-TUC', 'BUE-MDP', 'MZA-SJU'
 /** Genera pedidos sintéticos (v1 de Operations Intelligence: telemetría simulada). */
 export function simulateOrders(count: number, now: Date, seed: number, prefix: string): SimulatedOrder[] {
   const rand = rng(seed);
-  const pick = <T,>(arr: T[]) => arr[Math.floor(rand() * arr.length)];
+  const pick = <T>(arr: T[]) => arr[Math.floor(rand() * arr.length)];
   const out: SimulatedOrder[] = [];
   for (let i = 0; i < count; i++) {
     const ageH = rand() * 24 * 10;

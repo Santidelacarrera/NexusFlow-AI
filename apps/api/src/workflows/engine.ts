@@ -5,7 +5,13 @@ import { TRIGGER_TYPES } from './graph';
 export interface Executors {
   notify(cfg: { severity: string; title: string; message: string }): Promise<unknown>;
   task(cfg: { title: string; description?: string }): Promise<unknown>;
-  http(cfg: { url: string; method: string; headers?: Record<string, string>; body?: string }): Promise<unknown>;
+  http(cfg: {
+    url: string;
+    method: string;
+    headers?: Record<string, string>;
+    body?: string;
+    integrationId?: string;
+  }): Promise<unknown>;
   report(cfg: { title?: string }): Promise<unknown>;
 }
 
@@ -34,7 +40,10 @@ export interface EngineOptions {
 
 const MAX_OUTPUT_BYTES = 8_000;
 
-export function evaluateCondition(cfg: { field: string; op: string; value?: unknown }, ctx: unknown): boolean {
+export function evaluateCondition(
+  cfg: { field: string; op: string; value?: unknown },
+  ctx: unknown,
+): boolean {
   const actual = getPath(ctx, cfg.field);
   const expected = cfg.value;
   switch (cfg.op) {
@@ -54,7 +63,11 @@ export function evaluateCondition(cfg: { field: string; op: string; value?: unkn
     }
     case 'contains':
       if (Array.isArray(actual)) return actual.some((x) => looseEqual(x, expected));
-      return typeof actual === 'string' && typeof expected === 'string' && actual.toLowerCase().includes(expected.toLowerCase());
+      return (
+        typeof actual === 'string' &&
+        typeof expected === 'string' &&
+        actual.toLowerCase().includes(expected.toLowerCase())
+      );
     case 'in':
       return Array.isArray(expected) && expected.some((x) => looseEqual(actual, x));
     default:
@@ -71,7 +84,8 @@ function looseEqual(a: unknown, b: unknown): boolean {
 function clampOutput(output: unknown): unknown {
   if (output === undefined) return undefined;
   const json = JSON.stringify(output);
-  if (json && json.length > MAX_OUTPUT_BYTES) return { truncated: true, preview: json.slice(0, MAX_OUTPUT_BYTES) };
+  if (json && json.length > MAX_OUTPUT_BYTES)
+    return { truncated: true, preview: json.slice(0, MAX_OUTPUT_BYTES) };
   return output;
 }
 
@@ -95,14 +109,19 @@ export async function executeGraph(
   const trigger = graph.nodes.find((n) => (TRIGGER_TYPES as readonly string[]).includes(n.type));
   if (!trigger) return { status: 'FAILED', steps: [], error: 'Sin nodo trigger' };
 
-  const ctx = { trigger: triggerPayload ?? {}, data: {} as Record<string, unknown>, steps: {} as Record<string, unknown> };
+  const ctx = {
+    trigger: triggerPayload ?? {},
+    data: {} as Record<string, unknown>,
+    steps: {} as Record<string, unknown>,
+  };
   const steps: StepResult[] = [];
   const visited = new Set<string>();
   const queue: string[] = [trigger.id];
 
   while (queue.length > 0) {
     if (steps.length >= maxSteps) return { status: 'FAILED', steps, error: 'Se superó el máximo de pasos' };
-    if (now() > deadline) return { status: 'FAILED', steps, error: 'Se superó el tiempo máximo de ejecución' };
+    if (now() > deadline)
+      return { status: 'FAILED', steps, error: 'Se superó el tiempo máximo de ejecución' };
     const id = queue.shift() as string;
     if (visited.has(id)) continue;
     visited.add(id);
@@ -123,10 +142,22 @@ export async function executeGraph(
         }
       }
       ctx.steps[node.id] = output ?? null;
-      steps.push({ nodeId: node.id, nodeType: node.type, status: 'SUCCEEDED', output: clampOutput(output), durationMs: now() - started });
+      steps.push({
+        nodeId: node.id,
+        nodeType: node.type,
+        status: 'SUCCEEDED',
+        output: clampOutput(output),
+        durationMs: now() - started,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error desconocido';
-      steps.push({ nodeId: node.id, nodeType: node.type, status: 'FAILED', error: message.slice(0, 500), durationMs: now() - started });
+      steps.push({
+        nodeId: node.id,
+        nodeType: node.type,
+        status: 'FAILED',
+        error: message.slice(0, 500),
+        durationMs: now() - started,
+      });
       return { status: 'FAILED', steps, error: `Falló el nodo ${node.id}: ${message.slice(0, 300)}` };
     }
 
@@ -173,6 +204,7 @@ async function runNode(
       });
     case 'action.http':
       return ex.http({
+        integrationId: d.integrationId as string | undefined,
         url: renderTemplate(String(d.url), ctx),
         method: String(d.method ?? 'POST'),
         headers: d.headers ? (renderDeep(d.headers, ctx) as Record<string, string>) : undefined,

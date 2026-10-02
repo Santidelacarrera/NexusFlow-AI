@@ -21,7 +21,9 @@ function stringify(value: unknown): string {
 
 /** Plantillas {{ ruta }}: sin evaluación de código, solo sustitución de valores. */
 export function renderTemplate(template: string, context: unknown): string {
-  const out = template.replace(/\{\{\s*([\w.-]{1,200})\s*\}\}/g, (_, path: string) => stringify(getPath(context, path)));
+  const out = template.replace(/\{\{\s*([\w.-]{1,200})\s*\}\}/g, (_, path: string) =>
+    stringify(getPath(context, path)),
+  );
   return out.length > MAX_OUTPUT ? out.slice(0, MAX_OUTPUT) : out;
 }
 

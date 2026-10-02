@@ -74,12 +74,14 @@ model Organization {
   id        String   @id @default(cuid())
   name      String
   plan      String   @default("starter")
+  currency  String   @default("USD")
   createdAt DateTime @default(now())
 
   users          User[]
   customers      Customer[]
   transactions   Transaction[]
   workflows      Workflow[]
+  integrations   Integration[]
   runs           WorkflowRun[]
   imports        ImportJob[]
   predictions    Prediction[]
@@ -210,6 +212,7 @@ model ModelRun {
   createdAt DateTime @default(now())
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  predictions Prediction[]
 
   @@index([orgId, createdAt])
 }
@@ -218,6 +221,7 @@ model Prediction {
   id               String   @id @default(cuid())
   orgId            String
   customerId       String
+  modelRunId       String?
   modelVersion     String
   churnProbability Float
   riskBand         String
@@ -226,6 +230,9 @@ model Prediction {
 
   org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   customer Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  modelRun ModelRun? @relation(fields: [modelRunId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, modelRunId])
 
   @@index([orgId, createdAt])
   @@index([customerId, createdAt])
@@ -263,6 +270,17 @@ model Workflow {
   @@index([orgId])
 }
 
+model Integration {
+  id String @id @default(cuid())
+  orgId String
+  name String
+  baseUrl String
+  headersEnc String
+  createdAt DateTime @default(now())
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  @@index([orgId])
+}
+
 model WorkflowRun {
   id             String    @id @default(cuid())
   workflowId     String
@@ -270,6 +288,8 @@ model WorkflowRun {
   status         RunStatus @default(QUEUED)
   triggerType    String
   triggerPayload Json?
+  graphSnapshot  Json?
+  dispatchKey    String? @unique
   attempts       Int       @default(0)
   error          String?
   startedAt      DateTime?
@@ -307,6 +327,7 @@ model Alert {
   severity  AlertSeverity
   status    AlertStatus   @default(OPEN)
   source    String
+  dedupKey  String? @unique
   title     String
   message   String
   metadata  Json?

@@ -14,7 +14,12 @@ export function hasRole(actual: RoleName, minimum: RoleName): boolean {
  * - ADMIN solo gestiona roles estrictamente inferiores al suyo y no puede otorgar ADMIN/OWNER.
  * - Nadie se modifica a sí mismo el rol.
  */
-export function canManage(actor: RoleName, target: RoleName, newRole: RoleName | undefined, selfEdit: boolean): boolean {
+export function canManage(
+  actor: RoleName,
+  target: RoleName,
+  newRole: RoleName | undefined,
+  selfEdit: boolean,
+): boolean {
   if (selfEdit && newRole !== undefined) return false;
   if (actor === 'OWNER') return true;
   if (actor !== 'ADMIN') return false;

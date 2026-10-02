@@ -1,4 +1,10 @@
-const RANGES: Array<[number, number]> = [[0, 59], [0, 23], [1, 31], [1, 12], [0, 6]];
+const RANGES: Array<[number, number]> = [
+  [0, 59],
+  [0, 23],
+  [1, 31],
+  [1, 12],
+  [0, 6],
+];
 
 function fieldMatches(field: string, value: number, [min, max]: [number, number]): boolean | null {
   for (const part of field.split(',')) {
@@ -29,6 +35,12 @@ export function isValidCron(expr: string): boolean {
 export function cronMatches(expr: string, date: Date): boolean {
   const parts = expr.trim().split(/\s+/);
   if (parts.length !== 5) return false;
-  const values = [date.getUTCMinutes(), date.getUTCHours(), date.getUTCDate(), date.getUTCMonth() + 1, date.getUTCDay()];
+  const values = [
+    date.getUTCMinutes(),
+    date.getUTCHours(),
+    date.getUTCDate(),
+    date.getUTCMonth() + 1,
+    date.getUTCDay(),
+  ];
   return parts.every((p, i) => fieldMatches(p, values[i], RANGES[i]) === true);
 }

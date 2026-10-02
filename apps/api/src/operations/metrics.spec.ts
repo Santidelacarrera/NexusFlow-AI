@@ -3,7 +3,13 @@ import { computeOpsKpis, delayHours, isLate, simulateOrders, type OrderLike } fr
 const now = new Date('2026-02-10T12:00:00Z');
 const h = (n: number) => new Date(now.getTime() + n * 3_600_000);
 const order = (over: Partial<OrderLike>): OrderLike => ({
-  externalId: 'x', carrier: 'A', status: 'PENDING', promisedAt: h(1), dispatchedAt: null, deliveredAt: null, ...over,
+  externalId: 'x',
+  carrier: 'A',
+  status: 'PENDING',
+  promisedAt: h(1),
+  dispatchedAt: null,
+  deliveredAt: null,
+  ...over,
 });
 
 describe('operations metrics', () => {
@@ -21,8 +27,20 @@ describe('operations metrics', () => {
   it('calcula KPIs y agrupa por transportista', () => {
     const k = computeOpsKpis(
       [
-        order({ carrier: 'A', status: 'DELIVERED', promisedAt: h(-10), dispatchedAt: h(-30), deliveredAt: h(-12) }),
-        order({ carrier: 'A', status: 'DELIVERED', promisedAt: h(-10), dispatchedAt: h(-30), deliveredAt: h(-5) }),
+        order({
+          carrier: 'A',
+          status: 'DELIVERED',
+          promisedAt: h(-10),
+          dispatchedAt: h(-30),
+          deliveredAt: h(-12),
+        }),
+        order({
+          carrier: 'A',
+          status: 'DELIVERED',
+          promisedAt: h(-10),
+          dispatchedAt: h(-30),
+          deliveredAt: h(-5),
+        }),
         order({ carrier: 'B', status: 'IN_TRANSIT', promisedAt: h(-1) }),
         order({ carrier: 'B', status: 'CANCELLED' }),
       ],

@@ -11,7 +11,7 @@ const schema = z
     CORS_ORIGINS: z.string().default('http://localhost:5173'),
     TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
     ALLOW_REGISTRATION: z
-      .string()
+      .enum(['true', 'false'])
       .default('true')
       .transform((v) => v === 'true'),
     DATABASE_URL: z.string().min(1),
@@ -33,14 +33,30 @@ const schema = z
       ctx.addIssue({ code: 'custom', path: ['CORS_ORIGINS'], message: 'El comodín "*" no está permitido' });
     }
     if (env.NODE_ENV === 'production') {
+      if (!env.REDIS_URL)
+        ctx.addIssue({ code: 'custom', path: ['REDIS_URL'], message: 'Redis es obligatorio en producción' });
+      if (env.CORS_ORIGINS.split(',').some((origin) => !origin.trim().startsWith('https://')))
+        ctx.addIssue({
+          code: 'custom',
+          path: ['CORS_ORIGINS'],
+          message: 'Producción requiere orígenes HTTPS',
+        });
       for (const key of ['JWT_ACCESS_SECRET', 'AUDIT_HMAC_KEY', 'ML_SERVICE_TOKEN'] as const) {
         const value = env[key].toLowerCase();
         if (INSECURE_MARKERS.some((m) => value.includes(m))) {
-          ctx.addIssue({ code: 'custom', path: [key], message: `${key} contiene un valor de ejemplo inseguro` });
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: `${key} contiene un valor de ejemplo inseguro`,
+          });
         }
       }
       if (env.DATA_ENCRYPTION_KEY === EXAMPLE_ENC_KEY) {
-        ctx.addIssue({ code: 'custom', path: ['DATA_ENCRYPTION_KEY'], message: 'DATA_ENCRYPTION_KEY es la clave de ejemplo' });
+        ctx.addIssue({
+          code: 'custom',
+          path: ['DATA_ENCRYPTION_KEY'],
+          message: 'DATA_ENCRYPTION_KEY es la clave de ejemplo',
+        });
       }
     }
   });

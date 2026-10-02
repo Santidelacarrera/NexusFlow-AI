@@ -50,7 +50,9 @@ export function classify(r: number, f: number, m: number): Segment {
 }
 
 export function computeRfm(customers: CustomerAggregate[], asOf: Date): RfmRow[] {
-  const recency = customers.map((c) => Math.max(0, Math.floor((asOf.getTime() - c.lastPurchaseAt.getTime()) / DAY_MS)));
+  const recency = customers.map((c) =>
+    Math.max(0, Math.floor((asOf.getTime() - c.lastPurchaseAt.getTime()) / DAY_MS)),
+  );
   const rs = quintileScores(recency, false);
   const fs = quintileScores(customers.map((c) => c.frequency));
   const ms = quintileScores(customers.map((c) => c.monetary));
@@ -64,7 +66,9 @@ export function computeRfm(customers: CustomerAggregate[], asOf: Date): RfmRow[]
   }));
 }
 
-export function summarizeSegments(rows: RfmRow[]): Array<{ segment: Segment; customers: number; revenue: number }> {
+export function summarizeSegments(
+  rows: RfmRow[],
+): Array<{ segment: Segment; customers: number; revenue: number }> {
   const acc = new Map<Segment, { customers: number; revenue: number }>();
   for (const r of rows) {
     const cur = acc.get(r.segment) ?? { customers: 0, revenue: 0 };

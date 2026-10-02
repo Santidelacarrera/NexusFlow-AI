@@ -40,8 +40,16 @@ describe('computeRfm', () => {
   });
   it('segmenta clientes coherentemente', () => {
     const data = [
-      mk('champ', 1, 30, 9000), mk('a', 10, 12, 3000), mk('b', 30, 8, 2000), mk('c', 60, 5, 900), mk('d', 90, 3, 400),
-      mk('new', 2, 1, 50), mk('e', 120, 2, 120), mk('f', 200, 1, 40), mk('gone', 400, 6, 800), mk('h', 45, 4, 600),
+      mk('champ', 1, 30, 9000),
+      mk('a', 10, 12, 3000),
+      mk('b', 30, 8, 2000),
+      mk('c', 60, 5, 900),
+      mk('d', 90, 3, 400),
+      mk('new', 2, 1, 50),
+      mk('e', 120, 2, 120),
+      mk('f', 200, 1, 40),
+      mk('gone', 400, 6, 800),
+      mk('h', 45, 4, 600),
     ];
     const rows = computeRfm(data, asOf);
     const seg = Object.fromEntries(rows.map((r) => [r.customerId, r.segment]));
