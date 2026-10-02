@@ -1,0 +1,103 @@
+name: nexusflow
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_DB: nexusflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Ejecuta npm run setup}
+    volumes: ['pgdata:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nexus -d nexusflow']
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+  redis:
+    image: redis:7-alpine
+    command:
+      ['redis-server', '--appendonly', 'yes', '--maxmemory', '256mb', '--maxmemory-policy', 'noeviction']
+    volumes: ['redisdata:/data']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    restart: unless-stopped
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: build
+    working_dir: /app/apps/api
+    command: ['npx', 'prisma', 'migrate', 'deploy']
+    environment:
+      DATABASE_URL: postgresql://nexus:${POSTGRES_PASSWORD}@postgres:5432/nexusflow?schema=public
+    depends_on:
+      postgres: { condition: service_healthy }
+  ml:
+    build:
+      context: .
+      dockerfile: services/ml/Dockerfile
+    environment:
+      ML_SERVICE_TOKEN: ${ML_SERVICE_TOKEN:?Ejecuta npm run setup}
+    volumes: ['models:/app/models']
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://localhost:8001/health', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://nexus:${POSTGRES_PASSWORD}@postgres:5432/nexusflow?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Ejecuta npm run setup}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?Ejecuta npm run setup}
+      AUDIT_HMAC_KEY: ${AUDIT_HMAC_KEY:?Ejecuta npm run setup}
+      ML_SERVICE_URL: http://ml:8001
+      ML_SERVICE_TOKEN: ${ML_SERVICE_TOKEN:?Ejecuta npm run setup}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8088}
+      TRUST_PROXY: 1
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
+      HTTP_ACTION_ALLOWLIST: ${HTTP_ACTION_ALLOWLIST:-}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      ml: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:3000/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports: ['127.0.0.1:${WEB_PORT:-8088}:8080']
+    depends_on:
+      api: { condition: service_healthy }
+    restart: unless-stopped
+volumes:
+  pgdata:
+  redisdata:
+  models:

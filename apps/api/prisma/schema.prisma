@@ -1,0 +1,405 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  ANALYST
+  VIEWER
+}
+
+enum WorkflowStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+}
+
+enum RunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum StepStatus {
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+}
+
+enum ImportStatus {
+  COMPLETED
+  COMPLETED_WITH_ERRORS
+  REJECTED
+}
+
+enum OrderStatus {
+  PENDING
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+}
+
+enum CampaignStatus {
+  DRAFT
+  RUNNING
+  CLOSED
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  plan      String   @default("starter")
+  currency  String   @default("USD")
+  createdAt DateTime @default(now())
+
+  users          User[]
+  customers      Customer[]
+  transactions   Transaction[]
+  workflows      Workflow[]
+  integrations   Integration[]
+  runs           WorkflowRun[]
+  imports        ImportJob[]
+  predictions    Prediction[]
+  modelRuns      ModelRun[]
+  alerts         Alert[]
+  tasks          Task[]
+  orders         Order[]
+  campaigns      PhishingCampaign[]
+  auditLogs      AuditLog[]
+  churnPolicy    ChurnPolicy?
+}
+
+model User {
+  id           String    @id @default(cuid())
+  orgId        String
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         Role      @default(VIEWER)
+  isActive     Boolean   @default(true)
+  failedLogins Int       @default(0)
+  lockedUntil  DateTime?
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  org           Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  refreshTokens RefreshToken[]
+
+  @@index([orgId])
+}
+
+model RefreshToken {
+  id         String    @id @default(cuid())
+  userId     String
+  familyId   String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  userAgent  String?
+  ip         String?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  orgId      String
+  seq        Int
+  userId     String?
+  action     String
+  resource   String?
+  resourceId String?
+  ip         String?
+  userAgent  String?
+  metadata   Json?
+  prevHash   String
+  hash       String
+  createdAt  DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, seq])
+  @@index([orgId, createdAt])
+}
+
+model Customer {
+  id         String   @id @default(cuid())
+  orgId      String
+  externalId String
+  name       String
+  email      String?
+  createdAt  DateTime @default(now())
+
+  org          Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  predictions  Prediction[]
+
+  @@unique([orgId, externalId])
+  @@index([orgId])
+}
+
+model Transaction {
+  id         String   @id @default(cuid())
+  orgId      String
+  customerId String
+  externalId String
+  amount     Decimal  @db.Decimal(14, 2)
+  currency   String   @default("USD")
+  occurredAt DateTime
+  createdAt  DateTime @default(now())
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  customer Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, externalId])
+  @@index([orgId, occurredAt])
+  @@index([customerId, occurredAt])
+}
+
+model ImportJob {
+  id           String       @id @default(cuid())
+  orgId        String
+  userId       String
+  kind         String
+  filename     String
+  status       ImportStatus
+  totalRows    Int
+  importedRows Int
+  rejectedRows Int
+  report       Json
+  createdAt    DateTime     @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, createdAt])
+}
+
+model ModelRun {
+  id        String   @id @default(cuid())
+  orgId     String
+  version   String
+  metrics   Json
+  createdAt DateTime @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  predictions Prediction[]
+
+  @@index([orgId, createdAt])
+}
+
+model Prediction {
+  id               String   @id @default(cuid())
+  orgId            String
+  customerId       String
+  modelRunId       String?
+  modelVersion     String
+  churnProbability Float
+  riskBand         String
+  explanation      Json
+  createdAt        DateTime @default(now())
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  customer Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  modelRun ModelRun? @relation(fields: [modelRunId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, modelRunId])
+
+  @@index([orgId, createdAt])
+  @@index([customerId, createdAt])
+}
+
+model ChurnPolicy {
+  orgId     String   @id
+  threshold Float    @default(0.7)
+  action    String   @default("TASK")
+  enabled   Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
+model Workflow {
+  id          String         @id @default(cuid())
+  orgId       String
+  name        String
+  description String?
+  graph       Json
+  status      WorkflowStatus @default(DRAFT)
+  triggerType String
+  webhookId   String?        @unique
+  webhookSecretEnc String?
+  cron        String?
+  version     Int            @default(1)
+  createdBy   String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  org  Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  runs WorkflowRun[]
+
+  @@index([orgId])
+}
+
+model Integration {
+  id String @id @default(cuid())
+  orgId String
+  name String
+  baseUrl String
+  headersEnc String
+  createdAt DateTime @default(now())
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  @@index([orgId])
+}
+
+model WorkflowRun {
+  id             String    @id @default(cuid())
+  workflowId     String
+  orgId          String
+  status         RunStatus @default(QUEUED)
+  triggerType    String
+  triggerPayload Json?
+  graphSnapshot  Json?
+  dispatchKey    String? @unique
+  attempts       Int       @default(0)
+  error          String?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  durationMs     Int?
+  createdAt      DateTime  @default(now())
+
+  workflow Workflow          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  org      Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  steps    WorkflowRunStep[]
+
+  @@index([orgId, createdAt])
+  @@index([workflowId, createdAt])
+}
+
+model WorkflowRunStep {
+  id         String     @id @default(cuid())
+  runId      String
+  nodeId     String
+  nodeType   String
+  status     StepStatus
+  output     Json?
+  error      String?
+  durationMs Int
+  createdAt  DateTime   @default(now())
+
+  run WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}
+
+model Alert {
+  id        String        @id @default(cuid())
+  orgId     String
+  severity  AlertSeverity
+  status    AlertStatus   @default(OPEN)
+  source    String
+  dedupKey  String? @unique
+  title     String
+  message   String
+  metadata  Json?
+  createdAt DateTime      @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, status, createdAt])
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  orgId       String
+  title       String
+  description String?
+  status      TaskStatus @default(OPEN)
+  source      String
+  customerId  String?
+  createdAt   DateTime   @default(now())
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, status])
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  orgId        String
+  externalId   String
+  customerRef  String
+  carrier      String
+  route        String
+  status       OrderStatus @default(PENDING)
+  createdAt    DateTime    @default(now())
+  promisedAt   DateTime
+  dispatchedAt DateTime?
+  deliveredAt  DateTime?
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, externalId])
+  @@index([orgId, status])
+}
+
+model PhishingCampaign {
+  id               String         @id @default(cuid())
+  orgId            String
+  name             String
+  templateKey      String
+  authorizationRef String
+  status           CampaignStatus @default(DRAFT)
+  createdBy        String
+  createdAt        DateTime       @default(now())
+
+  org     Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  targets PhishingTarget[]
+
+  @@index([orgId])
+}
+
+// Simulación educativa: solo se registran eventos agregados (apertura/clic/reporte).
+// No existe ningún campo para capturar contraseñas ni datos introducidos por la persona.
+model PhishingTarget {
+  id         String    @id @default(cuid())
+  campaignId String
+  userId     String
+  tokenHash  String    @unique
+  sentAt     DateTime?
+  clickedAt  DateTime?
+  reportedAt DateTime?
+
+  campaign PhishingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, userId])
+}

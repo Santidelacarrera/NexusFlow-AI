@@ -1,0 +1,41 @@
+name: Validate platform
+on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: nexusflow-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run setup
+      - run: npm run prisma:generate -w @nexusflow/api
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npm run format:check
+      - run: npm audit --audit-level=high
+      - run: docker compose up --build -d --wait
+      - run: docker compose exec -T ml python -m pytest -q -p no:cacheprovider
+      - run: docker compose run --rm --no-deps --user root ml sh -c 'pip install --quiet pip-audit && pip-audit -r requirements.lock --no-deps --disable-pip'
+      - run: npm run test:smoke
+      - run: npm run test:smoke:ml
+      - run: npx playwright install --with-deps chromium
+      # Smoke + ML usan las tres evaluaciones/minuto permitidas. Conserva el control real en E2E.
+      - run: sleep 60
+      - run: npm run test:e2e -w @nexusflow/web
+      - if: failure()
+        run: docker compose logs --tail 100 api ml migrate
+      - if: always()
+        run: docker compose down

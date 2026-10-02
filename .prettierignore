@@ -1,0 +1,10 @@
+node_modules
+**/node_modules
+**/dist
+**/.venv
+**/coverage
+**/test-results
+**/playwright-report
+.validation
+package-lock*.json
+services/ml/models
