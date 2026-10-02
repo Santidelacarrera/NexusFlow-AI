@@ -1,14 +1,32 @@
 # TLS debe terminar en un proxy confiable que publique la web.
+# Endurecimiento de contenedores: sistema de ficheros de solo lectura, sin capabilities,
+# sin escalada de privilegios y con límites de recursos (mitiga DoS y post-explotación).
+x-hardened: &hardened
+  security_opt: ['no-new-privileges:true']
+  cap_drop: ['ALL']
+  read_only: true
+  pids_limit: 256
 services:
   api:
+    <<: *hardened
     environment:
       NODE_ENV: production
       ALLOW_REGISTRATION: 'false'
-    security_opt: ['no-new-privileges:true']
-    cap_drop: ['ALL']
+    tmpfs: ['/tmp:size=64m,noexec,nosuid']
+    mem_limit: 1g
   ml:
-    security_opt: ['no-new-privileges:true']
-    cap_drop: ['ALL']
+    <<: *hardened
+    tmpfs: ['/tmp:size=256m,noexec,nosuid']
+    mem_limit: 2g
   web:
+    <<: *hardened
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+      - /var/cache/nginx:size=32m,noexec,nosuid
+      - /var/run:size=1m,noexec,nosuid
+    mem_limit: 256m
+  redis:
+    user: '999:999'
     security_opt: ['no-new-privileges:true']
     cap_drop: ['ALL']
+    mem_limit: 384m

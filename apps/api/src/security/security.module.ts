@@ -1,3 +1,4 @@
+import { Throttle } from '@nestjs/throttler';
 import {
   BadRequestException,
   Body,
@@ -158,7 +159,9 @@ class SecurityController {
   ) {
     return this.security.close(u, id, c);
   }
-  @Public() @Post('training/event') event(@Body(zod(eventBody)) dto: z.infer<typeof eventBody>) {
+  @Public() @Throttle({ default: { limit: 20, ttl: 60_000 } }) @Post('training/event') event(
+    @Body(zod(eventBody)) dto: z.infer<typeof eventBody>,
+  ) {
     return this.security.event(dto);
   }
 }

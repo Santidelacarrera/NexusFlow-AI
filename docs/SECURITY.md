@@ -35,6 +35,17 @@ Solo usuarios administradores pueden crear campañas. Deben registrar autorizaci
 
 Cerrar la campaña invalida sus enlaces. Los enlaces caducan en 30 días; clics/reportes repetidos no aumentan contadores. Los resultados de campañas exponen agregados y no tokens por destinatario.
 
+## Endurecimiento de contenedores y red
+
+- `compose.production.yaml` ejecuta api, ml y web con sistema de ficheros de solo lectura, `cap_drop: ALL`, `no-new-privileges`, `tmpfs` con `noexec`, límite de procesos y de memoria. Redis corre como usuario no-root.
+- Postgres, Redis y el servicio ML no publican puertos en el despliegue normal; solo la web escucha (en `127.0.0.1`). Redis exige contraseña (`REDIS_PASSWORD`, generada por `npm run setup`).
+- La API responde siempre con `Cache-Control: no-store`, CSP `default-src 'none'` y CORP/COOP `same-origin`; no existe ninguna respuesta autenticada cacheable.
+- La validación de entorno impide arrancar en producción con secretos de ejemplo, Redis ausente u orígenes CORS sin HTTPS.
+
+## Verificación continua
+
+`.github/workflows/security.yml` ejecuta CodeQL (`security-extended`) para TypeScript y Python, gitleaks sobre todo el historial y Trivy sobre las tres imágenes (falla con HIGH/CRITICAL que tengan parche). Dependabot actualiza npm, pip y GitHub Actions semanalmente. La política de divulgación está en [SECURITY.md](../SECURITY.md).
+
 ## Reporte de vulnerabilidades
 
 Para un repositorio público, utiliza el canal privado de seguridad del alojamiento si está habilitado. No publiques credenciales ni PoCs con datos de clientes en issues públicos. Documenta versiones afectadas, impacto, pasos reproducibles y medidas de mitigación. Conserva evidencias sin datos sensibles.

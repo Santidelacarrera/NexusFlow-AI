@@ -1,0 +1,8 @@
+# Revisión obligatoria en superficies críticas de seguridad.
+/apps/api/src/common/security/  @Santidelacarrera
+/apps/api/src/auth/             @Santidelacarrera
+/apps/api/src/audit/            @Santidelacarrera
+/apps/api/prisma/               @Santidelacarrera
+/compose*.yaml                  @Santidelacarrera
+/.github/                       @Santidelacarrera
+/SECURITY.md                    @Santidelacarrera

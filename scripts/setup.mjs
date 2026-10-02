@@ -20,6 +20,7 @@ const envPath = resolve(root, '.env');
 const env = parse(envPath);
 const defaults = {
   POSTGRES_PASSWORD: random(),
+  REDIS_PASSWORD: random(),
   JWT_ACCESS_SECRET: random(),
   AUDIT_HMAC_KEY: random(),
   DATA_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
@@ -57,8 +58,12 @@ if (newApi) {
     /^DATABASE_URL=.*$/m,
     `DATABASE_URL=postgresql://nexus:${env.POSTGRES_PASSWORD}@localhost:54330/nexusflow?schema=public`,
   );
-  apiEnv = apiEnv.replace(/^REDIS_URL=.*$/m, 'REDIS_URL=redis://localhost:63800');
 }
+// Redis exige contraseña también en desarrollo (compose.dev publica el puerto solo en 127.0.0.1).
+apiEnv = apiEnv.replace(
+  /^REDIS_URL=redis:\/\/(?:[^@\r\n]*@)?localhost:63800\s*$/m,
+  `REDIS_URL=redis://:${env.REDIS_PASSWORD}@localhost:63800`,
+);
 apiEnv = apiEnv.replace(/^PORT=3000$/m, 'PORT=3001');
 writeFileSync(apiPath, apiEnv, { mode: 0o600 });
 console.log('Entorno preparado. Secretos de ejemplo sustituidos; credenciales personalizadas conservadas.');
