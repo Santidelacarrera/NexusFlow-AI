@@ -1,0 +1,54 @@
+name: Security scans
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '17 4 * * 1'
+permissions:
+  contents: read
+concurrency:
+  group: nexusflow-security-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  codeql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      matrix:
+        language: [javascript-typescript, python]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended
+      - uses: github/codeql-action/analyze@v3
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest detect --source /repo --redact --no-banner --exit-code 1
+  images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - run: |
+          docker build -f apps/api/Dockerfile -t nexusflow-api:scan .
+          docker build -f services/ml/Dockerfile -t nexusflow-ml:scan .
+          docker build -f apps/web/Dockerfile -t nexusflow-web:scan .
+      - name: Trivy (HIGH/CRITICAL con parche disponible)
+        run: |
+          for img in api ml web; do
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image \
+              --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "nexusflow-$img:scan"
+          done

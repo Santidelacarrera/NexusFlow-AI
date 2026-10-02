@@ -15,11 +15,24 @@ services:
     restart: unless-stopped
   redis:
     image: redis:7-alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Ejecuta npm run setup}
+    security_opt: ['no-new-privileges:true']
     command:
-      ['redis-server', '--appendonly', 'yes', '--maxmemory', '256mb', '--maxmemory-policy', 'noeviction']
+      [
+        'redis-server',
+        '--appendonly',
+        'yes',
+        '--maxmemory',
+        '256mb',
+        '--maxmemory-policy',
+        'noeviction',
+        '--requirepass',
+        '${REDIS_PASSWORD:?Ejecuta npm run setup}',
+      ]
     volumes: ['redisdata:/data']
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG']
       interval: 5s
       timeout: 3s
       retries: 15
@@ -63,7 +76,7 @@ services:
       NODE_ENV: development
       PORT: 3000
       DATABASE_URL: postgresql://nexus:${POSTGRES_PASSWORD}@postgres:5432/nexusflow?schema=public
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Ejecuta npm run setup}
       DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?Ejecuta npm run setup}
       AUDIT_HMAC_KEY: ${AUDIT_HMAC_KEY:?Ejecuta npm run setup}

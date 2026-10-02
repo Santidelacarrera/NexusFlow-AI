@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { getEnv } from './common/config/env';
 import { AllExceptionsFilter } from './common/http/exception.filter';
+import { apiSecurityHeaders } from './common/http/security-headers';
 import { requestLogger } from './common/http/request-logger.middleware';
 
 export async function bootstrap() {
@@ -16,6 +17,7 @@ export async function bootstrap() {
   app.setGlobalPrefix('api');
   app.use(requestLogger);
   app.use(helmet());
+  app.use(apiSecurityHeaders);
   app.use(cookieParser());
   app.useBodyParser('json', { limit: '100kb' });
   app.useBodyParser('urlencoded', { limit: '100kb', extended: false });
