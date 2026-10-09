@@ -37,6 +37,7 @@ const page = z.object({
   page: z.coerce.number().int().min(1).max(10_000).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
   workflowId: cuid.optional(),
+  status: z.enum(['QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'CANCELLED']).optional(),
 });
 const runBody = z.object({ payload: z.record(z.string(), z.unknown()).default({}) });
 
@@ -123,7 +124,7 @@ export class RunsController {
 
   @Get()
   list(@CurrentUser() u: AuthUser, @Query(zod(page)) q: z.infer<typeof page>) {
-    return this.svc.listRuns(u.orgId, q.page, q.pageSize, q.workflowId);
+    return this.svc.listRuns(u.orgId, q.page, q.pageSize, q.workflowId, q.status);
   }
 
   @Get(':id')

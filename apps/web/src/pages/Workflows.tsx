@@ -63,6 +63,10 @@ const catalog: Record<string, { label: string; data: Record<string, unknown> }> 
   'trigger.late_order': { label: 'Pedido atrasado', data: {} },
   condition: { label: 'Condición', data: { field: 'trigger.probability', op: 'gte', value: 0.7 } },
   transform: { label: 'Transformar datos', data: { assignments: { customer: '{{trigger.customerId}}' } } },
+  'data.operation': {
+    label: 'Operación sobre datos',
+    data: { operation: 'filter', source: 'trigger.orders', field: 'amount', op: 'gte', value: 1000 },
+  },
   'action.notify': {
     label: 'Crear alerta',
     data: { severity: 'INFO', title: 'Nueva actividad', message: 'El workflow se ejecutó correctamente.' },
@@ -84,6 +88,52 @@ const starter: Graph = {
   ],
   edges: [{ id: 'start-alert', source: 'start', target: 'alert' }],
 };
+const templates: Record<string, { label: string; name: string; graph: Graph }> = {
+  starter: { label: 'Disparador manual → alerta', name: 'Nueva automatización', graph: starter },
+  highValueOrders: {
+    label: 'Pedidos de alto valor (webhook → datos → alerta)',
+    name: 'Pedidos de alto valor',
+    graph: {
+      nodes: [
+        { id: 'hook', type: 'trigger.webhook', data: {}, position: { x: 40, y: 180 } },
+        {
+          id: 'big',
+          type: 'data.operation',
+          data: { operation: 'filter', source: 'trigger.orders', field: 'amount', op: 'gte', value: 1000 },
+          position: { x: 300, y: 180 },
+        },
+        {
+          id: 'total',
+          type: 'data.operation',
+          data: { operation: 'aggregate', source: 'steps.big.items', fn: 'sum', field: 'amount' },
+          position: { x: 560, y: 180 },
+        },
+        {
+          id: 'any',
+          type: 'condition',
+          data: { field: 'steps.big.count', op: 'gt', value: 0 },
+          position: { x: 820, y: 180 },
+        },
+        {
+          id: 'alert',
+          type: 'action.notify',
+          data: {
+            severity: 'WARNING',
+            title: '{{steps.big.count}} pedidos de alto valor',
+            message: 'Importe total {{steps.total.value}}',
+          },
+          position: { x: 1080, y: 120 },
+        },
+      ],
+      edges: [
+        { id: 'e1', source: 'hook', target: 'big' },
+        { id: 'e2', source: 'big', target: 'total' },
+        { id: 'e3', source: 'total', target: 'any' },
+        { id: 'e4', source: 'any', target: 'alert', sourceHandle: 'true' },
+      ],
+    },
+  },
+};
 function FlowNode({ data, selected }: NodeProps<Node<{ kind: string; config: Record<string, unknown> }>>) {
   const kind = data.kind;
   return (
@@ -95,7 +145,15 @@ function FlowNode({ data, selected }: NodeProps<Node<{ kind: string; config: Rec
         {kind.startsWith('trigger.') ? 'DISPARADOR' : kind.startsWith('action.') ? 'ACCIÓN' : 'LÓGICA'}
       </small>
       <strong>{catalog[kind]?.label ?? kind}</strong>
-      <span>{String(data.config.title ?? data.config.cron ?? data.config.field ?? 'Configurable')}</span>
+      <span>
+        {String(
+          data.config.title ??
+            data.config.cron ??
+            data.config.operation ??
+            data.config.field ??
+            'Configurable',
+        )}
+      </span>
       {kind === 'condition' ? (
         <>
           <Handle
@@ -430,6 +488,28 @@ function EditorInner() {
           >
             <Plus size={16} /> Agregar nodo
           </button>
+          <label>
+            Plantilla
+            <select
+              aria-label="Plantilla"
+              value=""
+              disabled={!editable}
+              onChange={(e) => {
+                const t = templates[e.target.value];
+                if (!t) return;
+                loadGraph(structuredClone(t.graph));
+                setName(t.name);
+                setSelected(null);
+              }}
+            >
+              <option value="">Cargar una plantilla…</option>
+              {Object.entries(templates).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <hr />
           {selected ? (
             <>
@@ -458,8 +538,8 @@ function EditorInner() {
                 Eliminar nodo
               </button>
               <p className="footnote">
-                Usa {'{{trigger.customerId}}'} o {'{{trigger.probability}}'} en textos. Cron usa UTC y cinco
-                campos.
+                Usa {'{{trigger.campo}}'}, {'{{steps.<nodo>.campo}}'} o {'{{data.clave}}'} en textos. Al
+                guardar se validan conexiones, entradas y tipos. Cron usa UTC y cinco campos.
               </p>
             </>
           ) : (
@@ -488,18 +568,159 @@ interface Run {
   id: string;
   workflow: { name: string };
   status: string;
+  triggerType: string;
+  triggeredBy: string | null;
   attempts: number;
   durationMs: number | null;
   createdAt: string;
   error: string | null;
 }
+interface RunStep {
+  id: string;
+  nodeId: string;
+  nodeType: string;
+  status: string;
+  attempts: number;
+  durationMs: number;
+  error: string | null;
+  output: unknown;
+}
+interface RunEvent {
+  seq: number;
+  type: string;
+  nodeId: string | null;
+  message: string | null;
+  createdAt: string;
+}
+interface RunDetailData extends Run {
+  steps: RunStep[];
+  events: RunEvent[];
+  resumeCount: number;
+  graphSnapshot?: { nodes: Array<{ id: string; type: string }> };
+}
+const ACTIVE = ['QUEUED', 'RUNNING'];
+const STATUS_LABEL: Record<string, string> = {
+  QUEUED: 'Pendiente',
+  RUNNING: 'Ejecutando',
+  SUCCEEDED: 'Completado',
+  FAILED: 'Fallido',
+  CANCELLED: 'Cancelado',
+};
+const statusLabel = (s: string) => STATUS_LABEL[s] ?? s;
+
+function RunDetail({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
+  const { user } = useSession(),
+    resource = useResource<RunDetailData>(`runs/${id}`),
+    action = useAction(),
+    run = resource.data;
+  useEffect(() => {
+    if (!run || !ACTIVE.includes(run.status)) return;
+    const timer = setInterval(resource.reload, 1500);
+    return () => clearInterval(timer);
+  }, [run, resource.reload]);
+  const executed = new Set(run?.steps.map((s) => s.nodeId));
+  const notRun = (run?.graphSnapshot?.nodes ?? []).filter((n) => !executed.has(n.id));
+  return (
+    <Modal title="Detalle de ejecución" onClose={onClose}>
+      {!run ? (
+        resource.error ? (
+          <ErrorBox error={resource.error} retry={resource.reload} />
+        ) : (
+          <Spinner />
+        )
+      ) : (
+        <div className="run-detail">
+          <p>
+            <strong>{run.workflow.name}</strong> · <Badge>{run.status}</Badge> {statusLabel(run.status)} ·{' '}
+            {run.triggerType}
+            {run.resumeCount > 0 && ` · reanudada ${run.resumeCount}×`}
+          </p>
+          {run.error && <p className="error-text">Motivo: {run.error}</p>}
+          {canEdit(user) && ACTIVE.includes(run.status) && (
+            <button
+              className="danger"
+              disabled={action.busy}
+              onClick={() =>
+                action.run(async () => {
+                  await post(`runs/${run.id}/cancel`);
+                  resource.reload();
+                  onChanged();
+                }, 'Cancelación solicitada')
+              }
+            >
+              Cancelar ejecución
+            </button>
+          )}
+          <h3>Nodos</h3>
+          <div className="table-scroll">
+            <table aria-label="Nodos de la ejecución">
+              <thead>
+                <tr>
+                  <th>Nodo</th>
+                  <th>Estado</th>
+                  <th>Intentos</th>
+                  <th>Tiempo</th>
+                  <th>Motivo / resultado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {run.steps.map((s) => (
+                  <tr key={s.id} data-node={s.nodeId}>
+                    <td>
+                      <strong>{catalog[s.nodeType]?.label ?? s.nodeType}</strong>
+                      <small>{s.nodeId}</small>
+                    </td>
+                    <td>
+                      <Badge>{s.status}</Badge>
+                    </td>
+                    <td>{s.attempts}</td>
+                    <td>{number(s.durationMs)} ms</td>
+                    <td>
+                      {s.error ? (
+                        <span className="error-text">{s.error}</span>
+                      ) : (
+                        <code>{JSON.stringify(s.output ?? null).slice(0, 140)}</code>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {notRun.map((n) => (
+                  <tr key={n.id} className="muted-row" data-node={n.id}>
+                    <td>
+                      <strong>{catalog[n.type]?.label ?? n.type}</strong>
+                      <small>{n.id}</small>
+                    </td>
+                    <td colSpan={4}>No ejecutado</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <h3>Traza</h3>
+          <ol className="trace" aria-label="Traza de la ejecución">
+            {run.events.map((e) => (
+              <li key={e.seq}>
+                <time>{new Date(e.createdAt).toLocaleTimeString('es-CL')}</time> <code>{e.type}</code>
+                {e.nodeId && <span> · {e.nodeId}</span>}
+                {e.message && <span className="error-text"> · {e.message}</span>}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 export function Runs() {
   const [page, setPage] = useState(1),
-    [detail, setDetail] = useState<unknown>(null);
-  const resource = useResource<{ items: Run[]; total: number }>(`runs?page=${page}`),
-    action = useAction();
+    [status, setStatus] = useState(''),
+    [detail, setDetail] = useState<string | null>(null);
+  const resource = useResource<{ items: Run[]; total: number }>(
+    `runs?page=${page}${status ? `&status=${status}` : ''}`,
+  );
   useEffect(() => {
-    const timer = setInterval(resource.reload, 10000);
+    const timer = setInterval(resource.reload, 5000);
     return () => clearInterval(timer);
   }, [resource.reload]);
   return (
@@ -507,8 +728,29 @@ export function Runs() {
       <PageTitle
         eyebrow="FLOW ENGINE / EJECUCIONES"
         title="Cada paso, visible"
-        description="Consulta resultados, duración y errores de tus automatizaciones."
-        actions={<button onClick={resource.reload}>Actualizar</button>}
+        description="Consulta estado, duración, errores y traza de cada nodo de tus automatizaciones."
+        actions={
+          <>
+            <label className="inline-filter">
+              Estado
+              <select
+                value={status}
+                onChange={(e) => {
+                  setStatus(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="">Todos</option>
+                {Object.entries(STATUS_LABEL).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button onClick={resource.reload}>Actualizar</button>
+          </>
+        }
       />
       <section className="panel">
         {resource.loading && !resource.data ? (
@@ -544,14 +786,7 @@ export function Runs() {
                     <td>{r.attempts}</td>
                     <td>{date(r.createdAt)}</td>
                     <td>
-                      <button
-                        disabled={action.busy}
-                        onClick={() =>
-                          action.run(async () => setDetail(await api(`runs/${r.id}`)), 'Ejecución cargada')
-                        }
-                      >
-                        Ver pasos
-                      </button>
+                      <button onClick={() => setDetail(r.id)}>Ver pasos</button>
                     </td>
                   </tr>
                 ))}
@@ -561,11 +796,7 @@ export function Runs() {
         )}
         <Pagination page={page} total={resource.data?.total ?? 0} onPage={setPage} />
       </section>
-      {detail != null && (
-        <Modal title="Detalle de ejecución" onClose={() => setDetail(null)}>
-          <JsonView value={detail} />
-        </Modal>
-      )}
+      {detail && <RunDetail id={detail} onClose={() => setDetail(null)} onChanged={resource.reload} />}
     </>
   );
 }

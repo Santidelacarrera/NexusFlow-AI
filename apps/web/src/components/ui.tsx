@@ -43,7 +43,7 @@ export function Badge({ children }: { children: ReactNode }) {
   const value = String(children);
   return (
     <span
-      className={`badge ${['ACTIVE', 'SUCCEEDED', 'COMPLETED', 'DONE', 'LOW', 'DELIVERED'].includes(value) ? 'good' : ['FAILED', 'REJECTED', 'HIGH', 'CRITICAL'].includes(value) ? 'bad' : 'neutral'}`}
+      className={`badge ${['ACTIVE', 'SUCCEEDED', 'COMPLETED', 'DONE', 'LOW', 'DELIVERED'].includes(value) ? 'good' : ['FAILED', 'REJECTED', 'HIGH', 'CRITICAL', 'CANCELLED'].includes(value) ? 'bad' : 'neutral'}`}
     >
       {children}
     </span>

@@ -663,8 +663,18 @@ export class WorkflowsService {
     return { runId };
   }
 
-  async listRuns(orgId: string, page: number, pageSize: number, workflowId?: string) {
-    const where: Prisma.WorkflowRunWhereInput = { orgId, ...(workflowId ? { workflowId } : {}) };
+  async listRuns(
+    orgId: string,
+    page: number,
+    pageSize: number,
+    workflowId?: string,
+    status?: 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED',
+  ) {
+    const where: Prisma.WorkflowRunWhereInput = {
+      orgId,
+      ...(workflowId ? { workflowId } : {}),
+      ...(status ? { status } : {}),
+    };
     const [items, total] = await Promise.all([
       this.prisma.workflowRun.findMany({
         where,

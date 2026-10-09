@@ -297,6 +297,18 @@ d('API de workflows: seguridad y caso de uso extremo a extremo', () => {
       expect(row.headersEnc.length).toBeGreaterThan(20);
     });
 
+    it('prueba la conexión de una integración sin exponer la respuesta ni las credenciales', async () => {
+      const r = await api()
+        .post(`/api/integrations/${integrationId}/test`)
+        .set(as(A.token))
+        .send({ path: '/' })
+        .expect(200);
+      expect(r.body).toMatchObject({ ok: true, status: 201 });
+      expect(JSON.stringify(r.body)).not.toContain(TOKEN);
+      await api().post(`/api/integrations/${integrationId}/test`).set(as(B.token)).send({}).expect(404);
+      await api().post(`/api/integrations/${integrationId}/test`).set(as(viewerToken)).send({}).expect(403);
+    });
+
     it('un workflow no puede llevar credenciales dentro del grafo', async () => {
       const g = dealFlow(integrationId);
       (g.nodes[4].data as Record<string, unknown>).headers = { Authorization: 'Bearer pegado-a-mano' };
