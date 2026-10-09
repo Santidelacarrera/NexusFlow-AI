@@ -3,6 +3,8 @@
  * apuntando a una base con las migraciones aplicadas (en CI: servicio postgres).
  */
 jest.mock('@nestjs/schedule', () => ({ Cron: () => () => undefined, ScheduleModule: {} }));
+// Cola en proceso: en CI `npm run setup` copia .env.example con un REDIS_URL que no existe en el runner.
+process.env.REDIS_URL = '';
 import { PermanentError, type Executors } from './engine';
 import { PrismaService } from '../prisma/prisma.service';
 import { QueueService, TriggersService } from '../triggers/triggers.module';

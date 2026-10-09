@@ -8,6 +8,8 @@ jest.mock('@nestjs/schedule', () => ({
 }));
 process.env.HTTP_ACTION_ALLOWLIST = 'api.crm.example.com';
 process.env.RUN_LEASE_SECONDS = '45';
+// Cola en proceso: en CI `npm run setup` copia .env.example con un REDIS_URL que no existe en el runner.
+process.env.REDIS_URL = '';
 
 import { INestApplication, Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
