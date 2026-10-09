@@ -42,6 +42,10 @@ Los volúmenes preservan base de datos, cola y modelos entre reinicios. No uses 
 
 Incluye bandeja de tareas/alertas, cambio de contraseña, interfaz adaptable a móviles, carga por rutas y manejo explícito de errores. Los datos que muestra la interfaz provienen de la API; los estados vacíos no se rellenan con métricas ficticias.
 
+## Documentación técnica
+
+[Motor de workflows](docs/WORKFLOW_ENGINE.md) · [Integraciones y credenciales](docs/INTEGRATIONS.md) · [Evaluación de ML](docs/ML_EVALUATION.md) · [Seguridad](docs/SECURITY.md) · [Validación](docs/VALIDATION.md)
+
 ## Prueba la plataforma
 
 Genera un archivo sintético con 200 clientes y 700 transacciones:

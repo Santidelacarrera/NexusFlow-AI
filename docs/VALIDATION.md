@@ -31,3 +31,18 @@ No se han ejecutado pruebas de carga, penetración externa, restauración de bac
 Windows bloqueó una DLL de Pandas por Control de aplicaciones. Se comprobó el servicio predictivo en Docker, donde las pruebas y el circuito HTTP funcionan. No se alteraron las políticas de seguridad de Windows.
 
 Las pruebas de navegador crean datos propios y no usan respuestas mock. Sus capturas y trazas se guardan en `apps/web/test-results`, que no forma parte del repositorio. Los smoke generan organizaciones aisladas identificadas en su salida.
+
+## Actualización: motor, seguridad de ejecución, integración y ML (9 de octubre de 2026)
+
+Entorno: Linux, Node 22, PostgreSQL 16 local (sin Docker ni Redis: cola en proceso), Python 3.13 con las versiones de `requirements.txt`. **No se ejecutó el stack Compose, el smoke HTTP ni Playwright contra el stack Docker en esta pasada**; se ejecutaron contra una API real y PostgreSQL locales.
+
+| Verificación                      | Resultado                                                                                                                                                                                                                                         |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Jest (API)                        | 148 casos, 16 suites, incluidas 3 suites sobre PostgreSQL real (`npm run test:db`): motor (12), API/seguridad/caso de uso (16) y validación tipada (12 sin BD)                                                                                    |
+| Reanudación tras reinicio         | Prueba: un proceso se «muere» en el nodo 3 de 4; el latido caduca; otro proceso reanuda; los nodos 1–2 no se repiten, no se duplican tareas/alertas, el run termina `SUCCEEDED` con `resumeCount=1` y traza `run.requeued → run.resumed`          |
+| Playwright `workflow-e2e.spec.ts` | Editor (plantilla) → API → PostgreSQL → webhook firmado → historial con estado, tiempos, motivo del fallo y traza: correcto contra Vite + API local                                                                                               |
+| Playwright `platform.spec.ts`     | Los pasos de registro, importación, RFM y workflow pasan; falla en «Predictive AI → Evaluar clientes» porque el servicio ML no se levantó en esta pasada. No se re-ejecutó con ML                                                                 |
+| pytest (ML)                       | 10 casos (3 previos + 7 de evaluación: métricas, bootstrap, dataset determinista, hash reproducible, líneas base, control de fugas, SHAP)                                                                                                         |
+| Evaluación ML                     | Reproducible (hash idéntico en dos ejecuciones). XGBoost supera con claridad a la línea base de prevalencia, **pero no demuestra ventaja sobre ordenar solo por recencia** (+0,019 PR-AUC, IC 95 % [−0,001, +0,041]). Ver `docs/ML_EVALUATION.md` |
+
+No se realizaron pruebas de carga, de penetración, de fallo de Redis/BullMQ ni de reinicio real de contenedores; la reanudación se probó simulando la muerte del proceso a nivel de aplicación (latido caducado), no matando un proceso del sistema operativo.

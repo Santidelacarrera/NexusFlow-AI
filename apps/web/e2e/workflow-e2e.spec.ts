@@ -5,7 +5,10 @@ import { expect, test } from '@playwright/test';
  * Caso de uso: pedidos de alto valor. Editor (plantilla) → API → PostgreSQL → webhook firmado →
  * motor → historial en la interfaz con estado, tiempos, motivos de fallo y traza.
  */
-test('editor → backend → base de datos → historial con nodos, errores y tiempos', async ({ page, request }) => {
+test('editor → backend → base de datos → historial con nodos, errores y tiempos', async ({
+  page,
+  request,
+}) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
@@ -20,7 +23,9 @@ test('editor → backend → base de datos → historial con nodos, errores y ti
   // 1. Editor: plantilla, nombre y guardado (validación tipada en el backend).
   await page.getByRole('link', { name: 'Flow Engine', exact: true }).click();
   await page.getByRole('link', { name: 'Nuevo workflow', exact: true }).click();
-  await page.getByLabel('Plantilla').selectOption({ label: 'Pedidos de alto valor (webhook → datos → alerta)' });
+  await page
+    .getByLabel('Plantilla')
+    .selectOption({ label: 'Pedidos de alto valor (webhook → datos → alerta)' });
   await page.getByLabel('Nombre', { exact: true }).fill('Pedidos de alto valor E2E');
   await page.getByRole('button', { name: 'Guardar workflow', exact: true }).click();
   const secretModal = page.getByRole('dialog');
@@ -39,7 +44,11 @@ test('editor → backend → base de datos → historial con nodos, errores y ti
     const signature = `sha256=${createHmac('sha256', webhookSecret).update(`${ts}.${raw}`).digest('hex')}`;
     return request.post(webhookPath, {
       data: raw,
-      headers: { 'content-type': 'application/json', 'x-nexus-timestamp': String(ts), 'x-nexus-signature': signature },
+      headers: {
+        'content-type': 'application/json',
+        'x-nexus-timestamp': String(ts),
+        'x-nexus-signature': signature,
+      },
     });
   };
   expect((await request.post(webhookPath, { data: { orders: [] } })).status()).toBe(401);
@@ -59,7 +68,10 @@ test('editor → backend → base de datos → historial con nodos, errores y ti
   await expect(page.getByText('SUCCEEDED', { exact: true })).toBeVisible({ timeout: 20000 });
   await expect(page.getByText('FAILED', { exact: true })).toBeVisible({ timeout: 20000 });
 
-  await page.getByRole('row', { name: /SUCCEEDED/ }).getByRole('button', { name: 'Ver pasos' }).click();
+  await page
+    .getByRole('row', { name: /SUCCEEDED/ })
+    .getByRole('button', { name: 'Ver pasos' })
+    .click();
   const nodes = page.getByRole('table', { name: 'Nodos de la ejecución' });
   for (const id of ['hook', 'big', 'total', 'any', 'alert'])
     await expect(nodes.locator(`tr[data-node="${id}"]`)).toContainText('SUCCEEDED');
@@ -71,7 +83,10 @@ test('editor → backend → base de datos → historial con nodos, errores y ti
   await expect(trace).toContainText('run.succeeded');
   await page.keyboard.press('Escape');
 
-  await page.getByRole('row', { name: /FAILED/ }).getByRole('button', { name: 'Ver pasos' }).click();
+  await page
+    .getByRole('row', { name: /FAILED/ })
+    .getByRole('button', { name: 'Ver pasos' })
+    .click();
   const failed = page.getByRole('table', { name: 'Nodos de la ejecución' });
   await expect(failed.locator('tr[data-node="big"]')).toContainText('FAILED');
   await expect(failed.locator('tr[data-node="big"]')).toContainText('no es una lista');
