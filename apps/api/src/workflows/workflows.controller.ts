@@ -22,7 +22,9 @@ import { zod } from '../common/http/zod.pipe';
 import { hmacHex, safeEqual } from '../common/security/crypto';
 import { OperationsModule } from '../operations/operations.module';
 import { TriggersService } from '../triggers/triggers.module';
+import { safeFetch } from '../common/security/ssrf';
 import {
+  HTTP_CLIENT,
   ReportsService,
   WorkflowRunner,
   WorkflowsService,
@@ -35,6 +37,7 @@ const page = z.object({
   page: z.coerce.number().int().min(1).max(10_000).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
   workflowId: cuid.optional(),
+  status: z.enum(['QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'CANCELLED']).optional(),
 });
 const runBody = z.object({ payload: z.record(z.string(), z.unknown()).default({}) });
 
@@ -121,12 +124,19 @@ export class RunsController {
 
   @Get()
   list(@CurrentUser() u: AuthUser, @Query(zod(page)) q: z.infer<typeof page>) {
-    return this.svc.listRuns(u.orgId, q.page, q.pageSize, q.workflowId);
+    return this.svc.listRuns(u.orgId, q.page, q.pageSize, q.workflowId, q.status);
   }
 
   @Get(':id')
   get(@CurrentUser() u: AuthUser, @Param('id', zod(cuid)) id: string) {
     return this.svc.getRun(u.orgId, id);
+  }
+
+  @Roles('ANALYST')
+  @HttpCode(200)
+  @Post(':id/cancel')
+  cancel(@CurrentUser() u: AuthUser, @Param('id', zod(cuid)) id: string, @Client() c: ClientInfo) {
+    return this.svc.cancelRun(u, id, c);
   }
 }
 
@@ -209,7 +219,12 @@ export class HooksController {
 @Module({
   imports: [AnalyticsModule, OperationsModule],
   controllers: [WorkflowsController, RunsController, ReportsController, HooksController],
-  providers: [WorkflowsService, WorkflowRunner, ReportsService],
+  providers: [
+    WorkflowsService,
+    WorkflowRunner,
+    ReportsService,
+    { provide: HTTP_CLIENT, useValue: safeFetch },
+  ],
   exports: [WorkflowsService],
 })
 export class WorkflowsModule {}

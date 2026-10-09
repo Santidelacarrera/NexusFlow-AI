@@ -11,11 +11,11 @@ import numpy as np
 import pandas as pd
 import shap
 from sklearn.dummy import DummyClassifier
-from sklearn.metrics import average_precision_score, f1_score, precision_score, recall_score
 from sklearn.model_selection import train_test_split
 from xgboost import XGBClassifier
 
 from features import FEATURES, build_training_rows
+from metrics import classification_metrics
 
 MODEL_ROOT = Path(os.environ.get("MODEL_DIR", "models"))
 TRAIN_LOCK = threading.Lock()
@@ -25,9 +25,23 @@ def org_dir(org_id: str) -> Path:
     return MODEL_ROOT / hashlib.sha256(org_id.encode()).hexdigest()
 
 
+PRODUCT_METRICS = ("precision", "recall", "f1", "prAuc")
+
+
 def metrics(y, probabilities):
-    predicted = probabilities >= 0.5
-    return {"precision": float(precision_score(y, predicted, zero_division=0)), "recall": float(recall_score(y, predicted, zero_division=0)), "f1": float(f1_score(y, predicted, zero_division=0)), "prAuc": float(average_precision_score(y, probabilities))}
+    """Métricas que se muestran al usuario. El cálculo vive en metrics.py (compartido con evaluation.py)."""
+    full = classification_metrics(y, probabilities)
+    return {k: full[k] for k in PRODUCT_METRICS}
+
+
+def build_model(seed: int = 42, n_jobs: int = 2) -> XGBClassifier:
+    """Hiperparámetros del modelo de producción; evaluation.py evalúa exactamente esta configuración."""
+    return XGBClassifier(n_estimators=80, max_depth=3, learning_rate=0.06, n_jobs=n_jobs, random_state=seed, eval_metric="logloss", reg_lambda=3)
+
+
+def heuristic_probability(recency_days):
+    """Indicador orientativo sin entrenamiento (también usado como línea base en la evaluación)."""
+    return np.clip(1 / (1 + np.exp(-(np.asarray(recency_days, dtype=float) - 75) / 25)), 0.01, 0.99)
 
 
 def train(org_id: str, transactions: list[dict], as_of: str):
@@ -41,12 +55,14 @@ def train(org_id: str, transactions: list[dict], as_of: str):
         train_rows, test_rows = train_test_split(rows, test_size=0.25, random_state=42, stratify=rows.churn)
         x_train, y_train = train_rows[FEATURES], train_rows.churn
         x_test, y_test = test_rows[FEATURES], test_rows.churn
-        model = XGBClassifier(n_estimators=80, max_depth=3, learning_rate=0.06, n_jobs=2, random_state=42, eval_metric="logloss", reg_lambda=3)
+        model = build_model()
         model.fit(x_train, y_train)
         evaluation = metrics(y_test, model.predict_proba(x_test)[:, 1])
         baseline = DummyClassifier(strategy="prior").fit(x_train, y_train)
         base_metrics = metrics(y_test, baseline.predict_proba(x_test)[:, 1])
-        report = {**evaluation, "baseline": base_metrics, "trainCustomers": len(train_rows), "testCustomers": len(test_rows), "cutoff": cutoff, "asOf": as_of, "horizonDays": 90, "labelDefinition": "sin compra durante los 90 días posteriores al corte", "validation": "clientes disjuntos, corte histórico y ventana futura observada", "beatsBaseline": evaluation["prAuc"] > base_metrics["prAuc"], "trainedAt": datetime.now(timezone.utc).isoformat(), "features": FEATURES}
+        # Línea base más exigente (informativa): ordenar solo por días sin comprar. Ver docs/ML_EVALUATION.md.
+        recency_metrics = metrics(y_test, heuristic_probability(x_test["recencyDays"].to_numpy()))
+        report = {**evaluation, "baseline": base_metrics, "trainCustomers": len(train_rows), "testCustomers": len(test_rows), "cutoff": cutoff, "asOf": as_of, "horizonDays": 90, "labelDefinition": "sin compra durante los 90 días posteriores al corte", "validation": "clientes disjuntos, corte histórico y ventana futura observada", "beatsBaseline": evaluation["prAuc"] > base_metrics["prAuc"], "recencyBaseline": recency_metrics, "beatsRecencyBaseline": evaluation["prAuc"] > recency_metrics["prAuc"], "trainedAt": datetime.now(timezone.utc).isoformat(), "features": FEATURES}
         if not report["beatsBaseline"]:
             return {"promoted": False, "metrics": report}
         version = f"xgb-{uuid4().hex}"
@@ -68,7 +84,7 @@ def score(org_id: str, customers: list[dict]):
     manifest_path = org_dir(org_id) / "manifest.json"
     if not manifest_path.exists():
         # Indicador transparente, no se presenta como un modelo entrenado ni se automatiza.
-        probability = np.clip(1 / (1 + np.exp(-(x.recencyDays.to_numpy() - 75) / 25)), 0.01, 0.99)
+        probability = heuristic_probability(x.recencyDays.to_numpy())
         return {"version": "heuristic-recency-v1", "mode": "heuristic", "metrics": {"warning": "Sin modelo entrenado. Indicador orientativo de recencia; no es una probabilidad calibrada."}, "predictions": [{"customerId": c["customerId"], "probability": float(p), "explanation": {"method": "heuristic", "recencyDays": c["recencyDays"], "note": "Mayor tiempo sin compra aumenta el indicador. Sin inferencia causal."}} for c, p in zip(customers, probability)]}
     manifest = json.loads(manifest_path.read_text(encoding="utf8"))
     model = XGBClassifier()

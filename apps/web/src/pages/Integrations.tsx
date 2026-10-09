@@ -3,6 +3,26 @@ import { Plug, Plus } from 'lucide-react';
 import { api, post } from '../lib/api';
 import { isAdmin, useSession } from '../lib/session';
 import { Empty, ErrorBox, Modal, PageTitle, Spinner, date, useAction, useResource } from '../components/ui';
+const PRESETS: Record<string, { label: string; baseUrl: string; headers: string; testPath: string }> = {
+  github: {
+    label: 'GitHub (issues y repositorios)',
+    baseUrl: 'https://api.github.com',
+    headers: '{"Authorization":"Bearer <token>","Accept":"application/vnd.github+json"}',
+    testPath: '/user',
+  },
+  slack: {
+    label: 'Slack (API Web)',
+    baseUrl: 'https://slack.com',
+    headers: '{"Authorization":"Bearer <xoxb-token>"}',
+    testPath: '/api/auth.test',
+  },
+  generic: {
+    label: 'API genérica con token',
+    baseUrl: '',
+    headers: '{"Authorization":"Bearer <token>"}',
+    testPath: '/',
+  },
+};
 interface Integration {
   id: string;
   name: string;
@@ -14,7 +34,9 @@ export default function Integrations() {
     action = useAction(),
     resource = useResource<Integration[]>('integrations');
   const [create, setCreate] = useState(false),
-    [headers, setHeaders] = useState('{}');
+    [headers, setHeaders] = useState('{}'),
+    [baseUrl, setBaseUrl] = useState(''),
+    [testResult, setTestResult] = useState<Record<string, string>>({});
   return (
     <>
       <PageTitle
@@ -78,7 +100,27 @@ export default function Integrations() {
                         }}
                       >
                         Eliminar
+                      </button>{' '}
+                      <button
+                        disabled={!isAdmin(user) || action.busy}
+                        onClick={() =>
+                          action.run(async () => {
+                            const r = await post<{ ok: boolean; status: number; durationMs: number }>(
+                              `integrations/${i.id}/test`,
+                              { path: '/' },
+                            );
+                            setTestResult((t) => ({
+                              ...t,
+                              [i.id]: r.ok
+                                ? `OK (${r.status}, ${r.durationMs} ms)`
+                                : `Falló (HTTP ${r.status || 'sin respuesta'})`,
+                            }));
+                          }, 'Prueba de conexión completada')
+                        }
+                      >
+                        Probar
                       </button>
+                      {testResult[i.id] && <small> {testResult[i.id]}</small>}
                     </td>
                   </tr>
                 ))}
@@ -113,12 +155,39 @@ export default function Integrations() {
             }}
           >
             <label>
+              Servicio
+              <select
+                aria-label="Servicio"
+                value=""
+                onChange={(e) => {
+                  const p = PRESETS[e.target.value];
+                  if (!p) return;
+                  setBaseUrl(p.baseUrl);
+                  setHeaders(p.headers);
+                }}
+              >
+                <option value="">Elegir un servicio…</option>
+                {Object.entries(PRESETS).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
               Nombre
               <input name="name" required minLength={2} maxLength={100} />
             </label>
             <label>
               URL base
-              <input name="baseUrl" type="url" required placeholder="https://api.empresa.com" />
+              <input
+                name="baseUrl"
+                type="url"
+                required
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder="https://api.empresa.com"
+              />
             </label>
             <label>
               Cabeceras de autenticación (JSON)

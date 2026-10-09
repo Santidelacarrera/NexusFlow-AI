@@ -6,5 +6,13 @@ export default defineConfig({
   timeout: 60000,
   retries: 0,
   use: { baseURL: process.env.E2E_URL ?? 'http://localhost:8088', trace: 'retain-on-failure' },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: { executablePath: process.env.PW_CHROMIUM || undefined },
+      },
+    },
+  ],
 });

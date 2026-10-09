@@ -1,0 +1,430 @@
+{
+  "environment": {
+    "numpy": "2.5.3",
+    "pandas": "3.0.6",
+    "python": "3.13.16",
+    "shap": "0.52.0",
+    "sklearn": "1.9.1",
+    "xgboost": "3.4.1"
+  },
+  "performance": {
+    "fitSecondsMedian": 0.0179,
+    "predict1000Ms": 2.4725,
+    "shap1000Ms": 41.75,
+    "trainingRows": 866
+  },
+  "reproducibilityHash": "f22297f5b3e5f2f80fa5f11513711da34ebdb38a2df0c583d567fc924ee6cb60",
+  "results": {
+    "crossValidation": {
+      "calibrationXgboost": [
+        {
+          "bin": "0.0-0.1",
+          "meanPredicted": 0.075451,
+          "n": 160,
+          "observedRate": 0.0875
+        },
+        {
+          "bin": "0.1-0.2",
+          "meanPredicted": 0.136537,
+          "n": 238,
+          "observedRate": 0.142857
+        },
+        {
+          "bin": "0.2-0.3",
+          "meanPredicted": 0.244327,
+          "n": 80,
+          "observedRate": 0.2
+        },
+        {
+          "bin": "0.3-0.4",
+          "meanPredicted": 0.340755,
+          "n": 37,
+          "observedRate": 0.351351
+        },
+        {
+          "bin": "0.4-0.5",
+          "meanPredicted": 0.454888,
+          "n": 40,
+          "observedRate": 0.525
+        },
+        {
+          "bin": "0.5-0.6",
+          "meanPredicted": 0.543605,
+          "n": 72,
+          "observedRate": 0.541667
+        },
+        {
+          "bin": "0.6-0.7",
+          "meanPredicted": 0.65764,
+          "n": 68,
+          "observedRate": 0.764706
+        },
+        {
+          "bin": "0.7-0.8",
+          "meanPredicted": 0.748516,
+          "n": 75,
+          "observedRate": 0.626667
+        },
+        {
+          "bin": "0.8-0.9",
+          "meanPredicted": 0.848894,
+          "n": 59,
+          "observedRate": 0.864407
+        },
+        {
+          "bin": "0.9-1.0",
+          "meanPredicted": 0.92642,
+          "n": 37,
+          "observedRate": 0.945946
+        }
+      ],
+      "comparisons": {
+        "xgboost_vs_baseline_logreg": {
+          "ci95": [-0.005812, 0.03261],
+          "excludesZero": false,
+          "meanDiff": 0.012622,
+          "resamples": 400
+        },
+        "xgboost_vs_baseline_prior": {
+          "ci95": [0.364612, 0.456611],
+          "excludesZero": true,
+          "meanDiff": 0.409156,
+          "resamples": 400
+        },
+        "xgboost_vs_baseline_recency": {
+          "ci95": [-0.000876, 0.041366],
+          "excludesZero": false,
+          "meanDiff": 0.01926,
+          "resamples": 400
+        }
+      },
+      "errorsAtThreshold0.5": {
+        "baseline_logreg": {
+          "fn": 139,
+          "fp": 56,
+          "tn": 488,
+          "tp": 183
+        },
+        "baseline_prior": {
+          "fn": 322,
+          "fp": 0,
+          "tn": 544,
+          "tp": 0
+        },
+        "baseline_recency": {
+          "fn": 110,
+          "fp": 71,
+          "tn": 473,
+          "tp": 212
+        },
+        "xgboost": {
+          "fn": 98,
+          "fp": 87,
+          "tn": 457,
+          "tp": 224
+        }
+      },
+      "folds": "3x5 estratificado por cliente",
+      "summary": {
+        "baseline_logreg": {
+          "brier": {
+            "max": 0.196967,
+            "mean": 0.157481,
+            "min": 0.132646,
+            "n": 15,
+            "std": 0.018328
+          },
+          "f1": {
+            "max": 0.697248,
+            "mean": 0.650919,
+            "min": 0.605042,
+            "n": 15,
+            "std": 0.033611
+          },
+          "prAuc": {
+            "max": 0.858237,
+            "mean": 0.774534,
+            "min": 0.683011,
+            "n": 15,
+            "std": 0.054691
+          },
+          "precision": {
+            "max": 0.871795,
+            "mean": 0.769191,
+            "min": 0.666667,
+            "n": 15,
+            "std": 0.065707
+          },
+          "recall": {
+            "max": 0.646154,
+            "mean": 0.567244,
+            "min": 0.515625,
+            "n": 15,
+            "std": 0.040856
+          },
+          "rocAuc": {
+            "max": 0.900229,
+            "mean": 0.833046,
+            "min": 0.753987,
+            "n": 15,
+            "std": 0.0433
+          }
+        },
+        "baseline_prior": {
+          "brier": {
+            "max": 0.234579,
+            "mean": 0.233574,
+            "min": 0.233091,
+            "n": 15,
+            "std": 0.00064
+          },
+          "f1": {
+            "max": 0.0,
+            "mean": 0.0,
+            "min": 0.0,
+            "n": 15,
+            "std": 0.0
+          },
+          "prAuc": {
+            "max": 0.375723,
+            "mean": 0.371822,
+            "min": 0.369942,
+            "n": 15,
+            "std": 0.002486
+          },
+          "precision": {
+            "max": 0.0,
+            "mean": 0.0,
+            "min": 0.0,
+            "n": 15,
+            "std": 0.0
+          },
+          "recall": {
+            "max": 0.0,
+            "mean": 0.0,
+            "min": 0.0,
+            "n": 15,
+            "std": 0.0
+          },
+          "rocAuc": {
+            "max": 0.5,
+            "mean": 0.5,
+            "min": 0.5,
+            "n": 15,
+            "std": 0.0
+          }
+        },
+        "baseline_recency": {
+          "brier": {
+            "max": 0.210365,
+            "mean": 0.158261,
+            "min": 0.125838,
+            "n": 15,
+            "std": 0.023157
+          },
+          "f1": {
+            "max": 0.764228,
+            "mean": 0.700939,
+            "min": 0.637931,
+            "n": 15,
+            "std": 0.039808
+          },
+          "prAuc": {
+            "max": 0.860193,
+            "mean": 0.763896,
+            "min": 0.637566,
+            "n": 15,
+            "std": 0.059373
+          },
+          "precision": {
+            "max": 0.84,
+            "mean": 0.751614,
+            "min": 0.677966,
+            "n": 15,
+            "std": 0.054167
+          },
+          "recall": {
+            "max": 0.734375,
+            "mean": 0.658317,
+            "min": 0.578125,
+            "n": 15,
+            "std": 0.042838
+          },
+          "rocAuc": {
+            "max": 0.896646,
+            "mean": 0.833795,
+            "min": 0.739732,
+            "n": 15,
+            "std": 0.038873
+          }
+        },
+        "xgboost": {
+          "brier": {
+            "max": 0.191507,
+            "mean": 0.150867,
+            "min": 0.120692,
+            "n": 15,
+            "std": 0.020232
+          },
+          "f1": {
+            "max": 0.764228,
+            "mean": 0.710463,
+            "min": 0.576271,
+            "n": 15,
+            "std": 0.047162
+          },
+          "prAuc": {
+            "max": 0.868185,
+            "mean": 0.78278,
+            "min": 0.673775,
+            "n": 15,
+            "std": 0.050684
+          },
+          "precision": {
+            "max": 0.830189,
+            "mean": 0.734068,
+            "min": 0.641509,
+            "n": 15,
+            "std": 0.059246
+          },
+          "recall": {
+            "max": 0.78125,
+            "mean": 0.691699,
+            "min": 0.523077,
+            "n": 15,
+            "std": 0.05991
+          },
+          "rocAuc": {
+            "max": 0.901553,
+            "mean": 0.842959,
+            "min": 0.767749,
+            "n": 15,
+            "std": 0.040066
+          }
+        }
+      },
+      "topDecileLift": {
+        "baseline_logreg": 2.407988,
+        "baseline_prior": 1.063267,
+        "baseline_recency": 2.43926,
+        "xgboost": 2.470533
+      }
+    },
+    "dataset": {
+      "asOf": "2026-10-01T00:00:00+00:00",
+      "churnRate": 0.371824,
+      "cutoff": "2026-07-03T00:00:00+00:00",
+      "fingerprint": "9bd6fb9cac2504e64869301d3ede662ad406dd9e549ec178b7815a24aa620334",
+      "seed": 20261001,
+      "spec": {
+        "amount": "lognormal(median=60, sigma=0.6) por cliente, ruido lognormal(sigma=0.4) por compra",
+        "customers": 900,
+        "historyDays": 540,
+        "label": "sin compra en los 90 d\u00edas previos a asOf (ver features.py)",
+        "lapseProbability": 0.4,
+        "lapseTime": "uniforme entre 60 d\u00edas tras el alta y 20 d\u00edas antes del corte final",
+        "purchaseRatePerDay": "lognormal(median=1/35, sigma=0.7)"
+      },
+      "trainingCustomers": 866,
+      "transactions": 10274
+    },
+    "datasetStability": {
+      "of": 5,
+      "runs": [
+        {
+          "baseline_logreg": 0.768401,
+          "baseline_prior": 0.394705,
+          "baseline_recency": 0.770568,
+          "datasetSeed": 11,
+          "xgboost": 0.760086
+        },
+        {
+          "baseline_logreg": 0.77744,
+          "baseline_prior": 0.387869,
+          "baseline_recency": 0.772406,
+          "datasetSeed": 12,
+          "xgboost": 0.79658
+        },
+        {
+          "baseline_logreg": 0.788479,
+          "baseline_prior": 0.401401,
+          "baseline_recency": 0.785837,
+          "datasetSeed": 13,
+          "xgboost": 0.78488
+        },
+        {
+          "baseline_logreg": 0.813724,
+          "baseline_prior": 0.424825,
+          "baseline_recency": 0.812734,
+          "datasetSeed": 14,
+          "xgboost": 0.79944
+        },
+        {
+          "baseline_logreg": 0.748479,
+          "baseline_prior": 0.393761,
+          "baseline_recency": 0.752667,
+          "datasetSeed": 15,
+          "xgboost": 0.750539
+        }
+      ],
+      "xgboostWins": {
+        "baseline_logreg": 2,
+        "baseline_prior": 5,
+        "baseline_recency": 1
+      }
+    },
+    "features": ["recencyDays", "frequency", "monetary"],
+    "labelShuffleControl": {
+      "prevalence": 0.371824,
+      "xgboostPrAuc": 0.399106
+    },
+    "seedStability": {
+      "prAuc": {
+        "max": 0.832095,
+        "mean": 0.832095,
+        "min": 0.832095,
+        "n": 5,
+        "std": 0.0
+      },
+      "seeds": [1, 2, 3, 4, 5]
+    },
+    "shap": {
+      "featureCorrelation": {
+        "frequency": {
+          "frequency": 1.0,
+          "monetary": 0.8005,
+          "recencyDays": -0.4427
+        },
+        "monetary": {
+          "frequency": 0.8005,
+          "monetary": 1.0,
+          "recencyDays": -0.3358
+        },
+        "recencyDays": {
+          "frequency": -0.4427,
+          "monetary": -0.3358,
+          "recencyDays": 1.0
+        }
+      },
+      "maxAdditivityError": 2e-6,
+      "meanAbsShapBySeed": {
+        "1": {
+          "frequency": 0.185348,
+          "monetary": 0.199389,
+          "recencyDays": 1.294999
+        },
+        "2": {
+          "frequency": 0.185348,
+          "monetary": 0.199389,
+          "recencyDays": 1.294999
+        },
+        "3": {
+          "frequency": 0.185348,
+          "monetary": 0.199389,
+          "recencyDays": 1.294999
+        }
+      },
+      "rankCorrelationVsFirstSeed": [1.0, 1.0]
+    }
+  }
+}

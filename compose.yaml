@@ -86,6 +86,12 @@ services:
       TRUST_PROXY: 1
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
       HTTP_ACTION_ALLOWLIST: ${HTTP_ACTION_ALLOWLIST:-}
+    # Límites de recursos: una ejecución abusiva no puede agotar el host.
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 256
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }

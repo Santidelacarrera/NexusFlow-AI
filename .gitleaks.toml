@@ -1,0 +1,15 @@
+title = "NexusFlow gitleaks"
+
+[extend]
+useDefault = true
+
+# Valores ficticios y marcados de forma explícita que solo usan CI y las pruebas.
+[allowlist]
+description = "Fixtures de CI y pruebas"
+regexes = [
+  '''ci-only-[A-Za-z0-9-]+''',
+  '''nexus-ci-only''',
+  '''MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=''',
+  '''crm-super-secret-token-\d+''',
+  '''Bearer beta-secret-\d+''',
+]

@@ -12,6 +12,17 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nexus
+          POSTGRES_PASSWORD: nexus-ci-only
+          POSTGRES_DB: nexus_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nexus -d nexus_test" --health-interval 5s --health-timeout 3s
+          --health-retries 15
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -23,6 +34,15 @@ jobs:
       - run: npm run prisma:generate -w @nexusflow/api
       - run: npm run lint
       - run: npm test
+      # Motor, seguridad y caso de uso extremo a extremo contra PostgreSQL real.
+      - run: npm run prisma:migrate -w @nexusflow/api && npm run test:db -w @nexusflow/api
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://nexus:nexus-ci-only@localhost:5432/nexus_test?schema=public
+          JWT_ACCESS_SECRET: ci-only-jwt-secret-ci-only-jwt-secret-01
+          DATA_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+          AUDIT_HMAC_KEY: ci-only-audit-hmac-key-ci-only-audit-01
+          ML_SERVICE_TOKEN: ci-only-ml-token-ci-only-ml-token-0123
       - run: npm run build
       - run: npm run format:check
       - run: npm audit --audit-level=high

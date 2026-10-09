@@ -37,7 +37,11 @@ describe('credenciales de integraciones', () => {
       $transaction: jest.fn().mockImplementation((fn) => fn(tx)),
     } as unknown as PrismaService;
     const audit = { record: jest.fn() } as unknown as AuditService;
-    const result = await new IntegrationsService(prisma, audit).create(
+    const result = await new IntegrationsService(prisma, audit, (async () => ({
+      status: 200,
+      body: '',
+      truncated: false,
+    })) as never).create(
       actor,
       {
         name: 'CRM',
@@ -55,7 +59,11 @@ describe('credenciales de integraciones', () => {
     expect(result).not.toHaveProperty('headersEnc');
   });
   it('rechaza destinos fuera de la allowlist antes de guardar datos', async () => {
-    const service = new IntegrationsService({} as PrismaService, {} as AuditService);
+    const service = new IntegrationsService(
+      {} as PrismaService,
+      {} as AuditService,
+      (async () => ({ status: 200, body: '', truncated: false })) as never,
+    );
     await expect(
       service.create(
         actor,

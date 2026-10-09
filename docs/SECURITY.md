@@ -42,6 +42,21 @@ Cerrar la campaña invalida sus enlaces. Los enlaces caducan en 30 días; clics/
 - La API responde siempre con `Cache-Control: no-store`, CSP `default-src 'none'` y CORP/COOP `same-origin`; no existe ninguna respuesta autenticada cacheable.
 - La validación de entorno impide arrancar en producción con secretos de ejemplo, Redis ausente u orígenes CORS sin HTTPS.
 
+## Ejecución segura de workflows
+
+| Requisito                                  | Control                                                                                                                                                                            | Prueba                                                                   |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| El editor no ejecuta código en el servidor | Tipos de nodo cerrados (`z.enum`), plantillas `{{ruta}}` de solo lectura sobre propiedades propias (sin `eval`, sin prototipos), operaciones de datos implementadas en el servidor | `typed-graph.spec.ts`, `api.db.spec.ts` («grafos con código ejecutable») |
+| Tiempo                                     | 15 s por nodo (configurable ≤ 30 s) con `AbortSignal`, 120 s por corrida, 200 pasos                                                                                                | `runner.db.spec.ts` (timeout), `typed-graph.spec.ts`                     |
+| Memoria                                    | Payload ≤ 50 KB, salida por nodo ≤ 64 KB, listas ≤ 5000 elementos, heap de Node limitado (`--max-old-space-size=384`) y contenedor `mem_limit: 512m`, `pids_limit`                 | `typed-graph.spec.ts` («salidas desmedidas»)                             |
+| Concurrencia                               | 5 ejecuciones simultáneas por proceso (BullMQ y modo en proceso), tope de 200 activas por organización con bloqueo asesor                                                          | `api.db.spec.ts` (tope por organización)                                 |
+| Abuso                                      | Límite de 30 ejecuciones manuales/min, 60 webhooks/min, 150 peticiones/min globales; webhooks con HMAC, ventana anti-replay y firma de un solo uso                                 | `api.db.spec.ts` (429, firma repetida)                                   |
+| Credenciales                               | Cifradas en reposo; fuera de respuestas, pasos, eventos, auditoría y errores; no se permiten en el grafo                                                                           | `api.db.spec.ts`                                                         |
+| Permisos                                   | VIEWER lee; ANALYST crea/ejecuta/cancela; ADMIN elimina/gestiona integraciones; toda consulta filtra por `orgId` de la sesión                                                      | `api.db.spec.ts`                                                         |
+| Aislamiento entre organizaciones           | Lecturas, escrituras, ejecución, cancelación e integraciones ajenas devuelven 404; una integración de otra organización no se puede usar desde un workflow                         | `api.db.spec.ts`, `runner.db.spec.ts`                                    |
+
+Límites conocidos: el aislamiento es a nivel de aplicación (sin RLS en PostgreSQL); los límites de memoria son por proceso/contenedor, no por ejecución; un dominio de la lista de permitidos comprometido sigue siendo un riesgo de egreso.
+
 ## Verificación continua
 
 `.github/workflows/security.yml` ejecuta CodeQL (`security-extended`) para TypeScript y Python, gitleaks sobre todo el historial y Trivy sobre las tres imágenes (falla con HIGH/CRITICAL que tengan parche). Dependabot actualiza npm, pip y GitHub Actions semanalmente. La política de divulgación está en [SECURITY.md](../SECURITY.md).

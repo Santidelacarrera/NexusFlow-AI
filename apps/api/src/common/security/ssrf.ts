@@ -109,6 +109,7 @@ export interface SafeFetchOptions extends UrlPolicy {
   body?: string;
   timeoutMs?: number;
   maxBytes?: number;
+  signal?: AbortSignal;
 }
 
 export interface SafeFetchResult {
@@ -166,6 +167,13 @@ export function safeFetch(rawUrl: string, opts: SafeFetchOptions): Promise<SafeF
     );
     req.on('timeout', () => req.destroy(new Error('Tiempo de espera agotado')));
     req.on('error', reject);
+    if (opts.signal) {
+      if (opts.signal.aborted) req.destroy(new Error('Solicitud abortada'));
+      else
+        opts.signal.addEventListener('abort', () => req.destroy(new Error('Solicitud abortada')), {
+          once: true,
+        });
+    }
     if (opts.body !== undefined) req.write(opts.body);
     req.end();
   });

@@ -20,17 +20,21 @@ enum WorkflowStatus {
   PAUSED
 }
 
+// QUEUED = pendiente, RUNNING = ejecutando, SUCCEEDED = completado, FAILED = fallido, CANCELLED = cancelado
 enum RunStatus {
   QUEUED
   RUNNING
   SUCCEEDED
   FAILED
+  CANCELLED
 }
 
 enum StepStatus {
+  RUNNING
   SUCCEEDED
   FAILED
   SKIPPED
+  CANCELLED
 }
 
 enum AlertSeverity {
@@ -291,6 +295,11 @@ model WorkflowRun {
   graphSnapshot  Json?
   dispatchKey    String? @unique
   attempts       Int       @default(0)
+  resumeCount    Int       @default(0)
+  triggeredBy    String?
+  cancelRequestedAt DateTime?
+  cancelledBy    String?
+  heartbeatAt    DateTime?
   error          String?
   startedAt      DateTime?
   finishedAt     DateTime?
@@ -300,7 +309,9 @@ model WorkflowRun {
   workflow Workflow          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   org      Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
   steps    WorkflowRunStep[]
+  events   WorkflowRunEvent[]
 
+  @@index([status, heartbeatAt])
   @@index([orgId, createdAt])
   @@index([workflowId, createdAt])
 }
@@ -313,12 +324,33 @@ model WorkflowRunStep {
   status     StepStatus
   output     Json?
   error      String?
-  durationMs Int
+  attempts   Int        @default(1)
+  durationMs Int        @default(0)
+  startedAt  DateTime?
+  finishedAt DateTime?
+  idempotencyKey String?
   createdAt  DateTime   @default(now())
 
   run WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 
+  @@unique([runId, nodeId])
   @@index([runId])
+}
+
+/// Traza append-only de cada ejecución: quién la lanzó, qué nodo corrió, reintentos, cancelación y reanudaciones.
+model WorkflowRunEvent {
+  id        String   @id @default(cuid())
+  runId     String
+  seq       Int
+  type      String
+  nodeId    String?
+  message   String?
+  data      Json?
+  createdAt DateTime @default(now())
+
+  run WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, seq])
 }
 
 model Alert {
@@ -328,6 +360,7 @@ model Alert {
   status    AlertStatus   @default(OPEN)
   source    String
   dedupKey  String? @unique
+  idempotencyKey String? @unique
   title     String
   message   String
   metadata  Json?
@@ -346,6 +379,7 @@ model Task {
   status      TaskStatus @default(OPEN)
   source      String
   customerId  String?
+  idempotencyKey String? @unique
   createdAt   DateTime   @default(now())
 
   org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
