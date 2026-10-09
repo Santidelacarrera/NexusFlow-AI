@@ -1,7 +1,6 @@
 FROM node:24-bookworm-slim AS build
-# Parches de SO al construir y sin npm/npx en runtime (solo se ejecuta `node`; sus dependencias empaquetadas acumulan CVE).
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends openssl \
-  && rm -rf /var/lib/apt/lists/* /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package*.json ./
 COPY apps/api/package.json apps/api/package.json
