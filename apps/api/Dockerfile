@@ -1,5 +1,7 @@
 FROM node:24-bookworm-slim AS build
-RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
+# Parches de SO al construir y sin npm/npx en runtime (solo se ejecuta `node`; sus dependencias empaquetadas acumulan CVE).
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends openssl \
+  && rm -rf /var/lib/apt/lists/* /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 WORKDIR /app
 COPY package*.json ./
 COPY apps/api/package.json apps/api/package.json
@@ -11,7 +13,9 @@ FROM build AS prod-deps
 RUN npm prune --omit=dev
 
 FROM node:24-bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
+# Parches de SO al construir y sin npm/npx en runtime (solo se ejecuta `node`; sus dependencias empaquetadas acumulan CVE).
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends openssl \
+  && rm -rf /var/lib/apt/lists/* /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 WORKDIR /app/apps/api
 COPY --from=prod-deps --chown=node:node /app/node_modules /app/node_modules
 COPY --from=build --chown=node:node /app/apps/api/dist ./dist
