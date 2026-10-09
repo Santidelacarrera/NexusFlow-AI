@@ -5,6 +5,7 @@ import {
   Delete,
   Get,
   HttpCode,
+  Inject,
   Injectable,
   Module,
   NotFoundException,
@@ -20,6 +21,7 @@ import type { AuthUser, ClientInfo } from '../common/http/types';
 import { getEnv } from '../common/config/env';
 import { zod } from '../common/http/zod.pipe';
 import { decryptSecret, encryptSecret } from '../common/security/crypto';
+import { HTTP_CLIENT, type HttpClient } from '../common/security/http-client';
 import { safeFetch, validateUrlSyntax } from '../common/security/ssrf';
 
 const body = z.object({
@@ -48,6 +50,7 @@ export class IntegrationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    @Inject(HTTP_CLIENT) private readonly http: HttpClient,
   ) {}
   list(orgId: string) {
     return this.prisma.integration.findMany({
@@ -120,7 +123,7 @@ export class IntegrationsService {
     let status = 0;
     try {
       status = (
-        await safeFetch(integration.baseUrl + path, {
+        await this.http(integration.baseUrl + path, {
           allowlist,
           method: 'GET',
           headers,
@@ -183,5 +186,8 @@ class IntegrationsController {
     return this.integrations.remove(u, id, c);
   }
 }
-@Module({ controllers: [IntegrationsController], providers: [IntegrationsService] })
+@Module({
+  controllers: [IntegrationsController],
+  providers: [IntegrationsService, { provide: HTTP_CLIENT, useValue: safeFetch }],
+})
 export class IntegrationsModule {}

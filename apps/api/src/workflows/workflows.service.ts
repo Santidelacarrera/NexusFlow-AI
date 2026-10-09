@@ -28,6 +28,7 @@ import {
   type Executors,
   type StepResult,
 } from './engine';
+import { HTTP_CLIENT, type HttpClient } from '../common/security/http-client';
 import { appendRunEvent } from './run-events';
 import { redactDeep, redactText } from '../common/security/redact';
 import { validateGraph, type WorkflowGraph } from './graph';
@@ -102,8 +103,7 @@ export class ReportsService {
   }
 }
 
-export const HTTP_CLIENT = Symbol('HTTP_CLIENT');
-export type HttpClient = typeof safeFetch;
+export { HTTP_CLIENT };
 
 const HEARTBEAT_MS = 2_000;
 const MAX_RESUMES = 3;
