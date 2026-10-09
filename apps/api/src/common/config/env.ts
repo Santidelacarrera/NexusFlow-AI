@@ -27,6 +27,7 @@ const schema = z
     ML_SERVICE_URL: z.string().url().default('http://localhost:8001'),
     ML_SERVICE_TOKEN: z.string().min(32, 'ML_SERVICE_TOKEN debe tener al menos 32 caracteres'),
     HTTP_ACTION_ALLOWLIST: z.string().default(''),
+    RUN_LEASE_SECONDS: z.coerce.number().int().min(10).max(3600).default(45),
   })
   .superRefine((env, ctx) => {
     if (env.CORS_ORIGINS.split(',').some((o) => o.trim() === '*')) {

@@ -128,6 +128,13 @@ export class RunsController {
   get(@CurrentUser() u: AuthUser, @Param('id', zod(cuid)) id: string) {
     return this.svc.getRun(u.orgId, id);
   }
+
+  @Roles('ANALYST')
+  @HttpCode(200)
+  @Post(':id/cancel')
+  cancel(@CurrentUser() u: AuthUser, @Param('id', zod(cuid)) id: string, @Client() c: ClientInfo) {
+    return this.svc.cancelRun(u, id, c);
+  }
 }
 
 @Controller('reports')

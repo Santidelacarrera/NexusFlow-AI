@@ -12,6 +12,7 @@ import { Cron } from '@nestjs/schedule';
 import { Queue, Worker } from 'bullmq';
 import { getEnv } from '../common/config/env';
 import { PrismaService } from '../prisma/prisma.service';
+import { appendRunEvent } from '../workflows/run-events';
 
 export type RunProcessor = (runId: string) => Promise<void>;
 
@@ -94,10 +95,11 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     await this.queue?.close();
   }
 
-  enqueue(runId: string): void {
+  /** `generation` distingue reanudaciones: BullMQ ignora jobIds repetidos aún retenidos. */
+  enqueue(runId: string, generation = 0): void {
     if (this.queue) {
       this.queue
-        .add('run', { runId }, { jobId: runId })
+        .add('run', { runId }, { jobId: generation ? `${runId}-r${generation}` : runId })
         .catch((e) => this.logger.error(`No se pudo encolar ${runId}: ${e.message}`));
       return;
     }
@@ -118,19 +120,51 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     // La BD actúa como outbox: un fallo de Redis no pierde la ejecución creada.
     const queued = await this.prisma.workflowRun.findMany({
       where: { status: 'QUEUED', createdAt: { lt: new Date(Date.now() - 10000) } },
-      select: { id: true },
+      select: { id: true, resumeCount: true },
       take: 200,
     });
-    queued.forEach((r) => this.enqueue(r.id));
-    // No repetir efectos externos de corridas interrumpidas: requieren revisión manual.
-    await this.prisma.workflowRun.updateMany({
-      where: { status: 'RUNNING', startedAt: { lt: new Date(Date.now() - 300000) } },
-      data: {
-        status: 'FAILED',
-        error: 'Ejecución interrumpida; revisar efectos antes de volver a ejecutar',
-        finishedAt: new Date(),
+    queued.forEach((r) => this.enqueue(r.id, r.resumeCount));
+    await this.recoverStale();
+  }
+
+  /**
+   * Reanuda corridas cuyo proceso murió (latido vencido). Es seguro porque cada paso completado está persistido
+   * y los efectos externos usan clave de idempotencia. Tras MAX_RESUMES reanudaciones se marca como fallida.
+   */
+  async recoverStale(leaseMs = getEnv().RUN_LEASE_SECONDS * 1000): Promise<number> {
+    const limit = new Date(Date.now() - leaseMs);
+    const stale = await this.prisma.workflowRun.findMany({
+      where: {
+        status: 'RUNNING',
+        OR: [{ heartbeatAt: { lt: limit } }, { heartbeatAt: null, startedAt: { lt: limit } }],
       },
+      select: { id: true, resumeCount: true, attempts: true },
+      take: 100,
     });
+    let resumed = 0;
+    for (const r of stale) {
+      if (r.resumeCount >= 3) {
+        const failed = await this.prisma.workflowRun.updateMany({
+          where: { id: r.id, status: 'RUNNING', attempts: r.attempts },
+          data: { status: 'FAILED', error: 'Ejecución interrumpida repetidamente', finishedAt: new Date() },
+        });
+        if (failed.count)
+          await appendRunEvent(this.prisma, r.id, 'run.failed', { message: 'Interrumpida repetidamente' });
+        continue;
+      }
+      const back = await this.prisma.workflowRun.updateMany({
+        where: { id: r.id, status: 'RUNNING', attempts: r.attempts },
+        data: { status: 'QUEUED', resumeCount: { increment: 1 } },
+      });
+      if (back.count) {
+        resumed++;
+        await appendRunEvent(this.prisma, r.id, 'run.requeued', {
+          message: 'Latido vencido: se reanuda desde el último paso completado',
+        });
+        this.enqueue(r.id, r.resumeCount + 1);
+      }
+    }
+    return resumed;
   }
 }
 
@@ -148,6 +182,7 @@ export class TriggersService {
     triggerType: string,
     payload: unknown,
     dispatchKey?: string,
+    triggeredBy?: string,
   ): Promise<string | null> {
     const json = JSON.stringify(payload ?? {});
     if (Buffer.byteLength(json) > MAX_PAYLOAD_BYTES)
@@ -176,11 +211,15 @@ export class TriggersService {
           triggerPayload: JSON.parse(json) as Prisma.InputJsonValue,
           graphSnapshot: wf.graph as Prisma.InputJsonValue,
           dispatchKey,
+          triggeredBy,
         },
         select: { id: true },
       });
     });
     if (!run) return null;
+    await appendRunEvent(this.prisma, run.id, 'run.queued', {
+      data: { triggerType, triggeredBy: triggeredBy ?? 'system' },
+    });
     this.queue.enqueue(run.id);
     return run.id;
   }
