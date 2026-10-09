@@ -19,6 +19,7 @@ export type RunProcessor = (runId: string) => Promise<void>;
 const QUEUE_NAME = 'workflow-runs';
 const MAX_ACTIVE_RUNS_PER_ORG = 200;
 const MAX_PAYLOAD_BYTES = 50_000;
+const MAX_CONCURRENT = 5;
 
 function redisConnection(url: string) {
   const u = new URL(url);
@@ -44,6 +45,8 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   private processor?: RunProcessor;
   private onFinalFailure?: (runId: string, err: Error) => Promise<void>;
   private pending = new Set<string>();
+  private waiting: string[] = [];
+  private active = 0;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -81,7 +84,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   private startWorker(): void {
     this.worker = new Worker(QUEUE_NAME, async (job) => this.processor?.(job.data.runId as string), {
       connection: redisConnection(getEnv().REDIS_URL as string),
-      concurrency: 5,
+      concurrency: MAX_CONCURRENT,
     });
     this.worker.on('error', (e) => this.logger.error(`Redis (worker): ${e.message}`));
     this.worker.on('failed', (job, err) => {
@@ -105,14 +108,28 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     }
     if (this.pending.has(runId)) return;
     this.pending.add(runId);
-    setImmediate(() => {
-      this.processor?.(runId)
-        .catch((e) => {
-          this.logger.error(`Ejecución ${runId} falló: ${e.message}`);
-          void this.onFinalFailure?.(runId, e);
-        })
-        .finally(() => this.pending.delete(runId));
-    });
+    this.waiting.push(runId);
+    this.drain();
+  }
+
+  /** Concurrencia acotada también sin Redis: nunca más de MAX_CONCURRENT ejecuciones simultáneas por proceso. */
+  private drain(): void {
+    while (this.active < MAX_CONCURRENT && this.waiting.length) {
+      const runId = this.waiting.shift() as string;
+      this.active++;
+      setImmediate(() => {
+        (this.processor?.(runId) ?? Promise.resolve())
+          .catch((e) => {
+            this.logger.error(`Ejecución ${runId} falló: ${e.message}`);
+            void this.onFinalFailure?.(runId, e);
+          })
+          .finally(() => {
+            this.pending.delete(runId);
+            this.active--;
+            this.drain();
+          });
+      });
+    }
   }
 
   @Cron('*/30 * * * * *')

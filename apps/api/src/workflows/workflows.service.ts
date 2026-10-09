@@ -702,7 +702,8 @@ export class WorkflowsService {
       take: 500,
       select: { seq: true, type: true, nodeId: true, message: true, data: true, createdAt: true },
     });
-    return { ...run, events };
+    // El payload original se conserva para poder reanudar, pero nunca se devuelve con claves sensibles.
+    return { ...run, triggerPayload: redactDeep(run.triggerPayload), events };
   }
 
   /** Solicita la cancelación. Si aún no empezó se cancela al instante; si corre, se aborta cooperativamente. */

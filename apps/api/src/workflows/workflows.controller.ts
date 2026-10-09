@@ -22,7 +22,9 @@ import { zod } from '../common/http/zod.pipe';
 import { hmacHex, safeEqual } from '../common/security/crypto';
 import { OperationsModule } from '../operations/operations.module';
 import { TriggersService } from '../triggers/triggers.module';
+import { safeFetch } from '../common/security/ssrf';
 import {
+  HTTP_CLIENT,
   ReportsService,
   WorkflowRunner,
   WorkflowsService,
@@ -216,7 +218,12 @@ export class HooksController {
 @Module({
   imports: [AnalyticsModule, OperationsModule],
   controllers: [WorkflowsController, RunsController, ReportsController, HooksController],
-  providers: [WorkflowsService, WorkflowRunner, ReportsService],
+  providers: [
+    WorkflowsService,
+    WorkflowRunner,
+    ReportsService,
+    { provide: HTTP_CLIENT, useValue: safeFetch },
+  ],
   exports: [WorkflowsService],
 })
 export class WorkflowsModule {}

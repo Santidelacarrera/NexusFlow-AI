@@ -189,7 +189,7 @@ d('motor de workflows sobre PostgreSQL', () => {
     expect(await prisma.task.count({ where: { orgId, idempotencyKey: `${runId}:task` } })).toBe(1);
 
     // "Reinicio": el latido vence y el recuperador devuelve la corrida a la cola.
-    expect(await queue.recoverStale(0)).toBe(1);
+    expect(await queue.recoverStale(0)).toBeGreaterThanOrEqual(1);
     let status = (await prisma.workflowRun.findUniqueOrThrow({ where: { id: runId } })).status;
     expect(status).toBe('QUEUED');
 

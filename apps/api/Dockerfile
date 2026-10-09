@@ -16,6 +16,7 @@ WORKDIR /app/apps/api
 COPY --from=prod-deps --chown=node:node /app/node_modules /app/node_modules
 COPY --from=build --chown=node:node /app/apps/api/dist ./dist
 COPY --from=build --chown=node:node /app/apps/api/prisma ./prisma
+ENV NODE_OPTIONS=--max-old-space-size=384
 USER node
 EXPOSE 3000
 CMD ["node", "dist/main.js"]
