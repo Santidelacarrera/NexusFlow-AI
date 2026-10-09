@@ -5,6 +5,16 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # Nest 12 es solo ESM y la API compila a CommonJS: Reflector se duplica y el arranque falla.
+      # Se actualiza todo @nestjs/* junto cuando la API migre a ESM.
+      - dependency-name: '@nestjs/*'
+        update-types: ['version-update:semver-major']
+      # Prisma 7 exige prisma.config.ts y adaptadores de controlador; migración planificada aparte.
+      - dependency-name: 'prisma'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@prisma/client'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: pip
     directory: /services/ml
     schedule:
@@ -17,10 +27,18 @@ updates:
     directory: /apps/api
     schedule:
       interval: weekly
+    ignore:
+      # Solo Node LTS (las versiones impares no son LTS).
+      - dependency-name: node
+        update-types: ['version-update:semver-major']
   - package-ecosystem: docker
     directory: /apps/web
     schedule:
       interval: weekly
+    ignore:
+      # Solo Node LTS (las versiones impares no son LTS).
+      - dependency-name: node
+        update-types: ['version-update:semver-major']
   - package-ecosystem: docker
     directory: /services/ml
     schedule:
