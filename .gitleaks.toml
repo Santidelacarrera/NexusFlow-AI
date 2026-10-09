@@ -9,7 +9,8 @@ description = "Fixtures de CI y pruebas"
 regexes = [
   '''ci-only-[A-Za-z0-9-]+''',
   '''nexus-ci-only''',
-  '''MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=''',
+  '''MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY''',
+  '''0123456789abcdef0123456789abcdef''',
   '''crm-super-secret-token-\d+''',
   '''Bearer beta-secret-\d+''',
 ]
