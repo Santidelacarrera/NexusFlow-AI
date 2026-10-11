@@ -46,9 +46,10 @@ jobs:
           docker build -f apps/api/Dockerfile -t nexusflow-api:scan .
           docker build -f services/ml/Dockerfile -t nexusflow-ml:scan .
           docker build -f apps/web/Dockerfile -t nexusflow-web:scan .
+          docker build -f services/orchestrator/Dockerfile -t nexusflow-orchestrator:scan .
       - name: Trivy (HIGH/CRITICAL con parche disponible)
         run: |
-          for img in api ml web; do
+          for img in api ml web orchestrator; do
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image \
               --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "nexusflow-$img:scan"
           done
