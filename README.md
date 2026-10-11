@@ -44,7 +44,7 @@ Incluye bandeja de tareas/alertas, cambio de contraseña, interfaz adaptable a m
 
 ## Documentación técnica
 
-[Motor de workflows](docs/WORKFLOW_ENGINE.md) · [Integraciones y credenciales](docs/INTEGRATIONS.md) · [Evaluación de ML](docs/ML_EVALUATION.md) · [Seguridad](docs/SECURITY.md) · [Validación](docs/VALIDATION.md)
+[Motor de workflows](docs/WORKFLOW_ENGINE.md) · [Orquestador (DAG, saga, trazabilidad)](docs/ORCHESTRATOR.md) · [Integraciones y credenciales](docs/INTEGRATIONS.md) · [Evaluación de ML](docs/ML_EVALUATION.md) · [Seguridad](docs/SECURITY.md) · [Validación](docs/VALIDATION.md)
 
 ## Prueba la plataforma
 

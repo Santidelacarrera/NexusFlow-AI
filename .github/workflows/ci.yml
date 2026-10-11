@@ -59,3 +59,13 @@ jobs:
         run: docker compose logs --tail 100 api ml migrate
       - if: always()
         run: docker compose down
+  orchestrator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Dependencias fijadas por requirements.lock
+        run: python3 -m venv .venv && .venv/bin/pip install -r services/orchestrator/requirements.txt -c services/orchestrator/requirements.lock
+      - name: Pruebas del orquestador (DAG, saga, trazabilidad, API)
+        run: ../../.venv/bin/python -m pytest
+        working-directory: services/orchestrator
