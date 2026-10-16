@@ -4,6 +4,6 @@ pandas==3.0.6
 scikit-learn==1.9.1
 xgboost-cpu==3.4.1; sys_platform == 'linux'
 xgboost==3.4.1; sys_platform != 'linux'
-shap==0.52.0
+shap==0.53.0
 pytest==9.1.1
 httpx==0.28.1
